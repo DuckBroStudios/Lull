@@ -1,0 +1,45 @@
+workflows:
+  ios-unsigned:
+    name: Lull iOS Unsigned
+    instance_type: mac_mini_m2
+    max_build_duration: 60
+    environment:
+      node: 20
+      xcode: latest
+      cocoapods: default
+    scripts:
+      - name: Install dependencies
+        script: npm ci
+      - name: Build web assets (Vite only)
+        script: npx vite build
+      - name: Capacitor sync
+        script: npx cap sync ios
+      - name: Install pods if present
+        script: |
+          if [ -f ios/App/Podfile ]; then
+            cd ios/App && pod install
+          fi
+      - name: Build unsigned archive
+        script: |
+          cd ios/App
+          if [ -d App.xcworkspace ]; then
+            CONTAINER="-workspace App.xcworkspace"
+          else
+            CONTAINER="-project App.xcodeproj"
+          fi
+          xcodebuild $CONTAINER \
+            -scheme App \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -archivePath "$CM_BUILD_DIR/build/App.xcarchive" \
+            archive \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY=""
+      - name: Package unsigned IPA
+        script: |
+          cd "$CM_BUILD_DIR/build"
+          mkdir -p Payload
+          cp -r App.xcarchive/Products/Applications/App.app Payload/
+          zip -r App.ipa Payload
+    artifacts:
+      - build/App.ipa
