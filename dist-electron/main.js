@@ -1,32 +1,393 @@
-import { ipcMain as p, app as r, BrowserWindow as u, screen as w, nativeImage as T, Tray as P, Menu as b } from "electron";
-import { createRequire as v } from "node:module";
-import { fileURLToPath as E } from "node:url";
-import n from "node:path";
-v(import.meta.url);
-const d = n.dirname(E(import.meta.url));
-process.env.APP_ROOT = n.join(d, "..");
-const i = process.env.VITE_DEV_SERVER_URL, V = n.join(process.env.APP_ROOT, "dist-electron"), m = n.join(process.env.APP_ROOT, "dist");
-process.env.VITE_PUBLIC = i ? n.join(process.env.APP_ROOT, "public") : m;
-let e, o = null, a = null, c = !1;
-function R() {
-  e = new u({
-    icon: n.join(process.env.VITE_PUBLIC, "icon.png"),
-    webPreferences: {
-      preload: n.join(d, "preload.mjs")
+import { app as m, globalShortcut as I, ipcMain as l, BrowserWindow as L, screen as oe, nativeImage as K, Tray as se, Menu as ae } from "electron";
+import { createRequire as J } from "node:module";
+import { fileURLToPath as ie } from "node:url";
+import f from "node:path";
+import { randomBytes as G, scryptSync as Q, timingSafeEqual as ce } from "node:crypto";
+import x from "node:fs";
+const C = {
+  displayName: "",
+  theme: "light",
+  soundEnabled: !0,
+  panicHotkey: ""
+};
+function H() {
+  return f.join(m.getPath("userData"), "lull-data.json");
+}
+function le() {
+  return { version: 1, session: null, accounts: {} };
+}
+function S() {
+  try {
+    const e = x.readFileSync(H(), "utf-8"), t = JSON.parse(e);
+    return t.accounts || (t.accounts = {}), typeof t.session > "u" && (t.session = null), t;
+  } catch {
+    return le();
+  }
+}
+function E(e) {
+  const t = H(), n = `${t}.tmp`;
+  x.writeFileSync(n, JSON.stringify(e, null, 2), "utf-8"), x.renameSync(n, t);
+}
+function k(e) {
+  return e.trim().toLowerCase();
+}
+function W(e, t) {
+  return Q(e, t, 64).toString("hex");
+}
+function X(e, t, n) {
+  const r = Q(e, t, 64), o = Buffer.from(n, "hex");
+  return r.length !== o.length ? !1 : ce(r, o);
+}
+function U(e) {
+  return {
+    username: e.username,
+    createdAt: e.createdAt,
+    reminders: e.reminders || [],
+    tasks: e.tasks || [],
+    settings: { ...C, ...e.settings || {} }
+  };
+}
+function ue(e, t) {
+  const n = (e || "").trim();
+  if (n.length < 2) return { ok: !1, error: "Username must be at least 2 characters." };
+  if ((t || "").length < 4) return { ok: !1, error: "Password must be at least 4 characters." };
+  const r = S();
+  if (r.accounts[k(n)])
+    return { ok: !1, error: "That username is already taken." };
+  const o = G(16).toString("hex"), s = {
+    username: n,
+    salt: o,
+    hash: W(t, o),
+    createdAt: Date.now(),
+    reminders: [],
+    tasks: [],
+    settings: { ...C, displayName: n }
+  };
+  return r.accounts[k(n)] = s, r.session = k(n), E(r), { ok: !0, user: U(s) };
+}
+function fe(e, t) {
+  const n = S(), r = n.accounts[k(e || "")];
+  return r ? X(t || "", r.salt, r.hash) ? (n.session = k(r.username), E(n), { ok: !0, user: U(r) }) : { ok: !1, error: "Incorrect password." } : { ok: !1, error: "No account with that username." };
+}
+function pe() {
+  const e = S();
+  return e.session = null, E(e), { ok: !0 };
+}
+function de() {
+  const e = S();
+  if (!e.session) return { ok: !0, user: null };
+  const t = e.accounts[e.session];
+  return t ? { ok: !0, user: U(t) } : { ok: !0, user: null };
+}
+function he(e, t) {
+  const n = S(), r = n.accounts[k(e || "")];
+  return r ? (Array.isArray(t.reminders) && (r.reminders = t.reminders), Array.isArray(t.tasks) && (r.tasks = t.tasks), t.settings && (r.settings = { ...C, ...r.settings, ...t.settings }), E(n), { ok: !0 }) : { ok: !1, error: "Account not found." };
+}
+function we(e, t, n) {
+  const r = S(), o = r.accounts[k(e || "")];
+  if (!o) return { ok: !1, error: "Account not found." };
+  if (!X(t || "", o.salt, o.hash))
+    return { ok: !1, error: "Current password is incorrect." };
+  if ((n || "").length < 4) return { ok: !1, error: "New password must be at least 4 characters." };
+  const s = G(16).toString("hex");
+  return o.salt = s, o.hash = W(n, s), E(r), { ok: !0 };
+}
+const Y = J(import.meta.url), d = /* @__PURE__ */ new Map();
+let j = /* @__PURE__ */ new Map(), Z = [], D = "", p = null, M = null;
+function ge(e) {
+  p = e;
+}
+function z() {
+  p == null || p.webContents.send("macro-status", Array.from(d.keys()));
+}
+function ye(e, t) {
+  p == null || p.webContents.send("macro-error", e, t);
+}
+function me() {
+  M || (M = setInterval(() => {
+    if (d.size === 0) {
+      clearInterval(M), M = null, p == null || p.webContents.send("macro-stats", []);
+      return;
     }
-  }), e.webContents.on("did-finish-load", () => {
-    e == null || e.webContents.send("main-process-message", (/* @__PURE__ */ new Date()).toLocaleString());
-  }), i ? e.loadURL(i) : e.loadFile(n.join(m, "index.html")), e.on("close", (s) => {
-    c || (s.preventDefault(), e == null || e.hide());
+    const e = Array.from(d.entries()).map(([t, n]) => ({ id: t, count: n.count, startedAt: n.startedAt }));
+    p == null || p.webContents.send("macro-stats", e);
+  }, 1e3));
+}
+function _() {
+  try {
+    return Y("@nut-tree-fork/nut-js");
+  } catch {
+    return null;
+  }
+}
+function ke() {
+  try {
+    return Y("playwright");
+  } catch {
+    return null;
+  }
+}
+const h = (e, t, n) => Math.max(t, Math.min(n, Number(e) || t));
+function y(e, t) {
+  return new Promise((n) => {
+    let o = 0;
+    const s = setInterval(() => {
+      o += 40, (t.stopped || o >= e) && (clearInterval(s), n());
+    }, 40);
   });
 }
-function I(s) {
-  o && (o.close(), o = null);
-  const t = w.getPrimaryDisplay(), { width: l } = t.workAreaSize, f = 560, _ = 320;
-  o = new u({
-    width: f,
-    height: _,
-    x: Math.round((l - f) / 2),
+function be() {
+  const e = "abcdefghijklmnopqrstuvwxyz0123456789", t = 5 + Math.floor(Math.random() * 8);
+  let n = "";
+  for (let r = 0; r < t; r++) n += e[Math.floor(Math.random() * e.length)];
+  return n;
+}
+async function Se(e, t) {
+  const n = _();
+  if (!n) throw new Error("Input automation not installed. Run: npm install");
+  const { mouse: r, Button: o } = n;
+  r.config.autoDelayMs = 0, r.config.mouseSpeed = 1e5;
+  const s = e.config.button === "right" ? o.RIGHT : e.config.button === "middle" ? o.MIDDLE : o.LEFT;
+  if (e.config.mode === "hold") {
+    const w = h(e.config.holdSeconds, 0.05, 3600) * 1e3, i = h(e.config.releaseSeconds, 0.05, 3600) * 1e3;
+    for (t.cleanup = async () => {
+      try {
+        await r.releaseButton(s);
+      } catch {
+      }
+    }; !t.stopped && (await r.pressButton(s), await y(w, t), await r.releaseButton(s), t.count++, !t.stopped); )
+      await y(i, t);
+    try {
+      await r.releaseButton(s);
+    } catch {
+    }
+  } else {
+    const i = 1e3 / h(e.config.cps, 1, 200);
+    for (; !t.stopped; )
+      await r.click(s), t.count++, i > 1 && await y(i, t);
+  }
+}
+function Pe(e, t) {
+  const { Key: n } = e, r = (t || "Space").trim(), o = {
+    space: n.Space,
+    enter: n.Enter,
+    return: n.Enter,
+    tab: n.Tab,
+    up: n.Up,
+    down: n.Down,
+    left: n.Left,
+    right: n.Right,
+    shift: n.LeftShift,
+    ctrl: n.LeftControl,
+    control: n.LeftControl,
+    alt: n.LeftAlt,
+    esc: n.Escape,
+    escape: n.Escape,
+    backspace: n.Backspace,
+    delete: n.Delete
+  }, s = r.toLowerCase();
+  return o[s] ? o[s] : /^f([1-9]|1[0-9]|2[0-4])$/i.test(r) ? n["F" + r.slice(1)] : /^[a-z]$/i.test(r) ? n[r.toUpperCase()] : /^[0-9]$/.test(r) ? n["Num" + r] : n.Space;
+}
+async function Ee(e, t) {
+  const n = _();
+  if (!n) throw new Error("Input automation not installed. Run: npm install");
+  const { keyboard: r } = n;
+  r.config.autoDelayMs = 0;
+  const o = Pe(n, e.config.key), s = h(e.config.intervalMs, 5, 36e5);
+  for (; !t.stopped; )
+    await r.pressKey(o), await r.releaseKey(o), t.count++, await y(s, t);
+}
+async function Ae(e, t) {
+  const n = _();
+  if (!n) throw new Error("Input automation not installed. Run: npm install");
+  const { keyboard: r, Key: o } = n;
+  r.config.autoDelayMs = 2;
+  const s = String(e.config.text ?? ""), w = h(e.config.startDelayMs ?? 1500, 0, 6e4), i = h(e.config.intervalMs ?? 1e3, 50, 36e5), A = !!e.config.repeat;
+  await y(w, t);
+  do {
+    if (t.stopped || (s && await r.type(s), e.config.pressEnter && (await r.pressKey(o.Enter), await r.releaseKey(o.Enter)), t.count++, !A)) break;
+    await y(i, t);
+  } while (!t.stopped && A);
+}
+async function ve(e, t) {
+  const n = _();
+  if (!n) throw new Error("Input automation not installed. Run: npm install");
+  const { mouse: r, Point: o } = n;
+  r.config.autoDelayMs = 0;
+  const s = h(e.config.intervalSeconds ?? 30, 1, 3600) * 1e3, w = h(e.config.distance ?? 5, 1, 200);
+  for (; !t.stopped; ) {
+    try {
+      const i = await r.getPosition();
+      await r.setPosition(new o(i.x + w, i.y)), await r.setPosition(new o(i.x, i.y)), t.count++;
+    } catch {
+    }
+    await y(s, t);
+  }
+}
+async function Me(e, t) {
+  const n = ke();
+  if (!n) throw new Error("Playwright not installed. Run: npm install && npx playwright install chromium");
+  const { chromium: r } = n, o = e.config.browser, s = { headless: !1 };
+  (o === "chrome" || o === "msedge") && (s.channel = o);
+  const w = {
+    google: { url: "https://www.google.com", box: 'textarea[name="q"], input[name="q"]' },
+    bing: { url: "https://www.bing.com", box: 'textarea[name="q"], input[name="q"]' },
+    duckduckgo: { url: "https://duckduckgo.com", box: 'input[name="q"]' }
+  }, i = w[e.config.searchEngine] || w.google, A = h(e.config.delaySeconds ?? 3, 0.5, 3600) * 1e3, q = !!e.config.persistProfile, V = !!e.config.keepOpenOnStop;
+  let v = null, b;
+  try {
+    if (q) {
+      const u = f.join(m.getPath("userData"), "lull-browser-profiles", e.id);
+      b = await r.launchPersistentContext(u, s);
+    } else
+      v = await r.launch(s), b = await v.newContext();
+  } catch (u) {
+    throw new Error(`Could not launch ${o || "browser"}: ${(u == null ? void 0 : u.message) || u}`);
+  }
+  const $ = async () => {
+    try {
+      v ? await v.close() : await b.close();
+    } catch {
+    }
+  };
+  if (t.cleanup = V ? void 0 : $, q && e.config.signInFirst && !t.stopped) {
+    try {
+      const u = await b.newPage(), g = e.config.searchEngine === "bing" ? "https://login.live.com" : i.url;
+      await u.goto(g, { waitUntil: "domcontentloaded", timeout: 3e4 });
+    } catch {
+    }
+    await y(h(e.config.signInGraceSeconds ?? 45, 5, 600) * 1e3, t);
+  }
+  for (; !t.stopped; ) {
+    let u;
+    try {
+      u = await b.newPage(), await u.goto(i.url, { waitUntil: "domcontentloaded", timeout: 3e4 });
+      const g = u.locator(i.box).first();
+      await g.click({ timeout: 8e3 }), await g.fill(be()), await g.press("Enter"), t.count++, await u.waitForTimeout(1200);
+      try {
+        await u.locator(i.box).first().click({ timeout: 4e3 });
+      } catch {
+      }
+    } catch {
+    }
+    try {
+      const g = b.pages();
+      if (g.length > 6)
+        for (const re of g.slice(0, g.length - 3))
+          try {
+            await re.close();
+          } catch {
+          }
+    } catch {
+    }
+    await y(A, t);
+  }
+  V || await $();
+}
+function Te(e) {
+  switch (e) {
+    case "autoclicker":
+      return Se;
+    case "keypresser":
+      return Ee;
+    case "autotyper":
+      return Ae;
+    case "mousejiggler":
+      return ve;
+    case "browsersearch":
+      return Me;
+    default:
+      return null;
+  }
+}
+async function ee(e) {
+  if (!(e != null && e.id)) return { ok: !1, error: "Invalid macro." };
+  if (d.has(e.id)) return { ok: !0 };
+  const t = Te(e.type);
+  if (!t) return { ok: !1, error: `Unknown macro type: ${e.type}` };
+  const n = { stopped: !1, count: 0, startedAt: Date.now() };
+  return d.set(e.id, n), j.set(e.id, e), z(), me(), t(e, n).catch((r) => ye(e.id, (r == null ? void 0 : r.message) || String(r))).finally(async () => {
+    var r;
+    try {
+      await ((r = n.cleanup) == null ? void 0 : r.call(n));
+    } catch {
+    }
+    d.delete(e.id), z();
+  }), { ok: !0 };
+}
+async function O(e) {
+  var n;
+  const t = d.get(e);
+  if (!t) return { ok: !0 };
+  t.stopped = !0;
+  try {
+    await ((n = t.cleanup) == null ? void 0 : n.call(t));
+  } catch {
+  }
+  return { ok: !0 };
+}
+async function B() {
+  const e = Array.from(d.keys());
+  await Promise.all(e.map(O));
+}
+function Ie() {
+  return Array.from(d.keys());
+}
+function _e(e) {
+  if (d.has(e))
+    O(e);
+  else {
+    const t = j.get(e);
+    t && ee(t);
+  }
+}
+function te() {
+  I.unregisterAll();
+  for (const e of Z)
+    if (e.keybind)
+      try {
+        I.register(e.keybind, () => _e(e.id));
+      } catch {
+      }
+  if (D)
+    try {
+      I.register(D, () => {
+        B();
+      });
+    } catch {
+    }
+}
+function Re(e) {
+  Z = e, j = new Map(e.map((t) => [t.id, t])), te();
+}
+function xe(e) {
+  D = e || "", te();
+}
+J(import.meta.url);
+const F = f.dirname(ie(import.meta.url));
+process.env.APP_ROOT = f.join(F, "..");
+const P = process.env.VITE_DEV_SERVER_URL, Ne = f.join(process.env.APP_ROOT, "dist-electron"), N = f.join(process.env.APP_ROOT, "dist");
+process.env.VITE_PUBLIC = P ? f.join(process.env.APP_ROOT, "public") : N;
+let a, c = null, T = null, R = !1;
+function ne() {
+  a = new L({
+    icon: f.join(process.env.VITE_PUBLIC, "icon.png"),
+    webPreferences: {
+      preload: f.join(F, "preload.mjs")
+    }
+  }), a.webContents.on("did-finish-load", () => {
+    a == null || a.webContents.send("main-process-message", (/* @__PURE__ */ new Date()).toLocaleString());
+  }), P ? a.loadURL(P) : a.loadFile(f.join(N, "index.html")), a.on("close", (e) => {
+    R || (e.preventDefault(), a == null || a.hide());
+  }), ge(a);
+}
+function De(e) {
+  c && (c.close(), c = null);
+  const t = oe.getPrimaryDisplay(), { width: n } = t.workAreaSize, r = 560, o = 320;
+  c = new L({
+    width: r,
+    height: o,
+    x: Math.round((n - r) / 2),
     y: 40,
     frame: !1,
     transparent: !0,
@@ -35,58 +396,82 @@ function I(s) {
     alwaysOnTop: !0,
     skipTaskbar: !0,
     focusable: !0,
-    icon: n.join(process.env.VITE_PUBLIC, "icon.png"),
+    icon: f.join(process.env.VITE_PUBLIC, "icon.png"),
     webPreferences: {
-      preload: n.join(d, "preload.mjs")
+      preload: f.join(F, "preload.mjs")
     }
-  }), o.setAlwaysOnTop(!0, "screen-saver"), o.setVisibleOnAllWorkspaces(!0, { visibleOnFullScreen: !0 });
-  const h = new URLSearchParams({
+  }), c.setAlwaysOnTop(!0, "screen-saver"), c.setVisibleOnAllWorkspaces(!0, { visibleOnFullScreen: !0 });
+  const s = new URLSearchParams({
     alert: "1",
-    data: encodeURIComponent(JSON.stringify(s))
+    data: encodeURIComponent(JSON.stringify(e))
   }).toString();
-  i ? o.loadURL(`${i}?${h}`) : o.loadFile(n.join(m, "index.html"), { search: h }), o.on("closed", () => {
-    o = null;
+  P ? c.loadURL(`${P}?${s}`) : c.loadFile(f.join(N, "index.html"), { search: s }), c.on("closed", () => {
+    c = null;
   });
 }
-p.on("show-alert", (s, t) => {
-  I(t);
+l.handle(
+  "auth:signup",
+  (e, t, n) => ue(t, n)
+);
+l.handle(
+  "auth:login",
+  (e, t, n) => fe(t, n)
+);
+l.handle("auth:logout", () => pe());
+l.handle("auth:session", () => de());
+l.handle(
+  "auth:changePassword",
+  (e, t, n, r) => we(t, n, r)
+);
+l.handle(
+  "data:save",
+  (e, t, n) => he(t, n)
+);
+l.handle("macros:run", (e, t) => ee(t));
+l.handle("macros:stop", (e, t) => O(t));
+l.handle("macros:stopAll", () => B());
+l.handle("macros:status", () => Ie());
+l.handle("macros:sync", (e, t) => (Re(Array.isArray(t) ? t : []), { ok: !0 }));
+l.handle("macros:panic", (e, t) => (xe(t || ""), { ok: !0 }));
+l.on("show-alert", (e, t) => {
+  De(t);
 });
-p.on("close-alert", () => {
-  o && (o.close(), o = null);
+l.on("close-alert", () => {
+  c && (c.close(), c = null);
 });
-p.on("alert-action", (s, t, l) => {
-  e == null || e.webContents.send("alert-action", t, l), o && (o.close(), o = null);
+l.on("alert-action", (e, t, n) => {
+  a == null || a.webContents.send("alert-action", t, n), c && (c.close(), c = null);
 });
-function y() {
-  const s = n.join(process.env.VITE_PUBLIC, "icon.png"), t = T.createFromPath(s);
-  a = new P(t.isEmpty() ? T.createEmpty() : t), a.setToolTip("Lull");
-  const l = b.buildFromTemplate([
+function Le() {
+  const e = f.join(process.env.VITE_PUBLIC, "icon.png"), t = K.createFromPath(e);
+  T = new se(t.isEmpty() ? K.createEmpty() : t), T.setToolTip("Lull");
+  const n = ae.buildFromTemplate([
     { label: "Show Lull", click: () => {
-      e == null || e.show(), e == null || e.focus();
+      a == null || a.show(), a == null || a.focus();
     } },
     { type: "separator" },
     { label: "Quit", click: () => {
-      c = !0, r.quit();
+      R = !0, m.quit();
     } }
   ]);
-  a.setContextMenu(l), a.on("click", () => {
-    e && (e.isVisible() ? e.hide() : (e.show(), e.focus()));
+  T.setContextMenu(n), T.on("click", () => {
+    a && (a.isVisible() ? a.hide() : (a.show(), a.focus()));
   });
 }
-r.on("window-all-closed", () => {
-  process.platform !== "darwin" && c && (r.quit(), e = null);
+m.on("window-all-closed", () => {
+  process.platform !== "darwin" && R && (m.quit(), a = null);
 });
-r.on("before-quit", () => {
-  c = !0;
+m.on("before-quit", () => {
+  R = !0, B(), I.unregisterAll();
 });
-r.on("activate", () => {
-  u.getAllWindows().length === 0 ? R() : e == null || e.show();
+m.on("activate", () => {
+  L.getAllWindows().length === 0 ? ne() : a == null || a.show();
 });
-r.whenReady().then(() => {
-  R(), y();
+m.whenReady().then(() => {
+  ne(), Le();
 });
 export {
-  V as MAIN_DIST,
-  m as RENDERER_DIST,
-  i as VITE_DEV_SERVER_URL
+  Ne as MAIN_DIST,
+  N as RENDERER_DIST,
+  P as VITE_DEV_SERVER_URL
 };

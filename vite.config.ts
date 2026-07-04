@@ -12,6 +12,15 @@ export default defineConfig({
     electron({
       main: {
         entry: 'electron/main.ts',
+        vite: {
+          build: {
+            rollupOptions: {
+              // native / heavy automation deps must stay external and be
+              // required from node_modules at runtime, not bundled by esbuild
+              external: ['playwright', 'playwright-core', '@nut-tree-fork/nut-js'],
+            },
+          },
+        },
       },
       preload: {
         input: path.join(__dirname, 'electron/preload.ts'),

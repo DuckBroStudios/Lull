@@ -1,7 +1,9 @@
-import { app, BrowserWindow, Tray, Menu, nativeImage, ipcMain, screen } from 'electron'
+import { app, BrowserWindow, Tray, Menu, nativeImage, ipcMain, screen, globalShortcut } from 'electron'
 import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
+import * as store from './store'
+import * as macros from './macros'
 
 const require = createRequire(import.meta.url)
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -45,6 +47,9 @@ function createWindow() {
       win?.hide()
     }
   })
+
+  // let the macro engine send status/error updates to this window
+  macros.setMainWindow(win)
 }
 
 function createAlertWindow(reminder: any) {
@@ -97,6 +102,36 @@ function createAlertWindow(reminder: any) {
   })
 }
 
+// ============ ACCOUNT / DATA IPC (invoke-based) ============
+ipcMain.handle('auth:signup', (_e, username: string, password: string) =>
+  store.signup(username, password)
+)
+ipcMain.handle('auth:login', (_e, username: string, password: string) =>
+  store.login(username, password)
+)
+ipcMain.handle('auth:logout', () => store.logout())
+ipcMain.handle('auth:session', () => store.getSession())
+ipcMain.handle('auth:changePassword', (_e, username: string, current: string, next: string) =>
+  store.changePassword(username, current, next)
+)
+ipcMain.handle('data:save', (_e, username: string, data: any) =>
+  store.saveData(username, data)
+)
+
+// ============ MACRO / AUTOMATION IPC ============
+ipcMain.handle('macros:run', (_e, macro: any) => macros.startMacro(macro))
+ipcMain.handle('macros:stop', (_e, id: string) => macros.stopMacro(id))
+ipcMain.handle('macros:stopAll', () => macros.stopAll())
+ipcMain.handle('macros:status', () => macros.status())
+ipcMain.handle('macros:sync', (_e, list: any[]) => {
+  macros.syncShortcuts(Array.isArray(list) ? list : [])
+  return { ok: true }
+})
+ipcMain.handle('macros:panic', (_e, key: string) => {
+  macros.setPanicKey(key || '')
+  return { ok: true }
+})
+
 // listen for messages from the renderer process
 ipcMain.on('show-alert', (_event, reminder) => {
   createAlertWindow(reminder)
@@ -145,7 +180,11 @@ app.on('window-all-closed', () => {
   }
 })
 
-app.on('before-quit', () => { isQuitting = true })
+app.on('before-quit', () => {
+  isQuitting = true
+  macros.stopAll()
+  globalShortcut.unregisterAll()
+})
 
 app.on('activate', () => {
   if (BrowserWindow.getAllWindows().length === 0) {
