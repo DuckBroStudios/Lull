@@ -7,7 +7,9 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		10D5462B9204E6941A015B95 /* bloop.wav in Resources */ = {isa = PBXBuildFile; fileRef = 0DC2472988358518CE75D8A6 /* bloop.wav */; };
 		2FAD9763203C412B000D30F8 /* config.xml in Resources */ = {isa = PBXBuildFile; fileRef = 2FAD9762203C412B000D30F8 /* config.xml */; };
+		349A43FAA8259B8CE691ACB0 /* marimba.wav in Resources */ = {isa = PBXBuildFile; fileRef = CED44204AEC24F707753F7D5 /* marimba.wav */; };
 		4D22ABE92AF431CB00220026 /* CapApp-SPM in Frameworks */ = {isa = PBXBuildFile; productRef = 4D22ABE82AF431CB00220026 /* CapApp-SPM */; };
 		50379B232058CBB4000EE86E /* capacitor.config.json in Resources */ = {isa = PBXBuildFile; fileRef = 50379B222058CBB4000EE86E /* capacitor.config.json */; };
 		504EC3081FED79650016851F /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 504EC3071FED79650016851F /* AppDelegate.swift */; };
@@ -15,10 +17,24 @@
 		504EC30F1FED79650016851F /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 504EC30E1FED79650016851F /* Assets.xcassets */; };
 		504EC3121FED79650016851F /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 504EC3101FED79650016851F /* LaunchScreen.storyboard */; };
 		50B271D11FEDC1A000F3C39B /* public in Resources */ = {isa = PBXBuildFile; fileRef = 50B271D01FEDC1A000F3C39B /* public */; };
+		661B4CA4913940A81B79EEDD /* triad.wav in Resources */ = {isa = PBXBuildFile; fileRef = 64C44DC89E3667A215018CB0 /* triad.wav */; };
+		68FB4CF5B94BFF50F8532283 /* ding.wav in Resources */ = {isa = PBXBuildFile; fileRef = C5D84AE2B35FEF341014AD23 /* ding.wav */; };
+		72184346A960EAE37984A085 /* rising.wav in Resources */ = {isa = PBXBuildFile; fileRef = 2E7B4F7E8280BCF4F50C29DE /* rising.wav */; };
+		864F4BCCB17793CDCFACC136 /* soft-bell.wav in Resources */ = {isa = PBXBuildFile; fileRef = 52204284BF5CB5E661F0E7F3 /* soft-bell.wav */; };
+		A53F4D44830B7FE965725E53 /* beep.wav in Resources */ = {isa = PBXBuildFile; fileRef = 7C0C4A52AA8C9ADDFEEA4088 /* beep.wav */; };
+		A6FE4CF2821F1740D1257DA3 /* chime.wav in Resources */ = {isa = PBXBuildFile; fileRef = E35C4ECDA614F5608A4BCA85 /* chime.wav */; };
+		B94C430F936BCF8D4E45CF11 /* alert.wav in Resources */ = {isa = PBXBuildFile; fileRef = 6B1448C59011E0B8B6255C1D /* alert.wav */; };
+		BB544BB2A391583B7B56AC9D /* double-beep.wav in Resources */ = {isa = PBXBuildFile; fileRef = 4BF54C7FA57FB8198B31AB7D /* double-beep.wav */; };
+		C70B46E993545D9D6A53B8F8 /* pluck.wav in Resources */ = {isa = PBXBuildFile; fileRef = BB0B4D8FBBF3CA52F4987B25 /* pluck.wav */; };
+		CF2B4AB08D91587421D81E18 /* descending.wav in Resources */ = {isa = PBXBuildFile; fileRef = 34E94B6FAA9994E82490477A /* descending.wav */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		0DC2472988358518CE75D8A6 /* bloop.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; name = bloop.wav; path = App/sounds/bloop.wav; sourceTree = SOURCE_ROOT; };
+		2E7B4F7E8280BCF4F50C29DE /* rising.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; name = rising.wav; path = App/sounds/rising.wav; sourceTree = SOURCE_ROOT; };
 		2FAD9762203C412B000D30F8 /* config.xml */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = config.xml; sourceTree = "<group>"; };
+		34E94B6FAA9994E82490477A /* descending.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; name = descending.wav; path = App/sounds/descending.wav; sourceTree = SOURCE_ROOT; };
+		4BF54C7FA57FB8198B31AB7D /* double-beep.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; name = "double-beep.wav"; path = "App/sounds/double-beep.wav"; sourceTree = SOURCE_ROOT; };
 		50379B222058CBB4000EE86E /* capacitor.config.json */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.json; path = capacitor.config.json; sourceTree = "<group>"; };
 		504EC3041FED79650016851F /* App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = App.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		504EC3071FED79650016851F /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
@@ -27,7 +43,15 @@
 		504EC3111FED79650016851F /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		504EC3131FED79650016851F /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		50B271D01FEDC1A000F3C39B /* public */ = {isa = PBXFileReference; lastKnownFileType = folder; path = public; sourceTree = "<group>"; };
+		52204284BF5CB5E661F0E7F3 /* soft-bell.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; name = "soft-bell.wav"; path = "App/sounds/soft-bell.wav"; sourceTree = SOURCE_ROOT; };
+		64C44DC89E3667A215018CB0 /* triad.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; name = triad.wav; path = App/sounds/triad.wav; sourceTree = SOURCE_ROOT; };
+		6B1448C59011E0B8B6255C1D /* alert.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; name = alert.wav; path = App/sounds/alert.wav; sourceTree = SOURCE_ROOT; };
+		7C0C4A52AA8C9ADDFEEA4088 /* beep.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; name = beep.wav; path = App/sounds/beep.wav; sourceTree = SOURCE_ROOT; };
 		958DCC722DB07C7200EA8C5F /* debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = debug.xcconfig; path = ../debug.xcconfig; sourceTree = SOURCE_ROOT; };
+		BB0B4D8FBBF3CA52F4987B25 /* pluck.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; name = pluck.wav; path = App/sounds/pluck.wav; sourceTree = SOURCE_ROOT; };
+		C5D84AE2B35FEF341014AD23 /* ding.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; name = ding.wav; path = App/sounds/ding.wav; sourceTree = SOURCE_ROOT; };
+		CED44204AEC24F707753F7D5 /* marimba.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; name = marimba.wav; path = App/sounds/marimba.wav; sourceTree = SOURCE_ROOT; };
+		E35C4ECDA614F5608A4BCA85 /* chime.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; name = chime.wav; path = App/sounds/chime.wav; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -48,6 +72,18 @@
 				958DCC722DB07C7200EA8C5F /* debug.xcconfig */,
 				504EC3061FED79650016851F /* App */,
 				504EC3051FED79650016851F /* Products */,
+				E35C4ECDA614F5608A4BCA85 /* chime.wav */,
+				C5D84AE2B35FEF341014AD23 /* ding.wav */,
+				52204284BF5CB5E661F0E7F3 /* soft-bell.wav */,
+				7C0C4A52AA8C9ADDFEEA4088 /* beep.wav */,
+				4BF54C7FA57FB8198B31AB7D /* double-beep.wav */,
+				CED44204AEC24F707753F7D5 /* marimba.wav */,
+				BB0B4D8FBBF3CA52F4987B25 /* pluck.wav */,
+				64C44DC89E3667A215018CB0 /* triad.wav */,
+				2E7B4F7E8280BCF4F50C29DE /* rising.wav */,
+				34E94B6FAA9994E82490477A /* descending.wav */,
+				0DC2472988358518CE75D8A6 /* bloop.wav */,
+				6B1448C59011E0B8B6255C1D /* alert.wav */,
 			);
 			sourceTree = "<group>";
 		};
@@ -145,6 +181,18 @@
 				50379B232058CBB4000EE86E /* capacitor.config.json in Resources */,
 				504EC30D1FED79650016851F /* Main.storyboard in Resources */,
 				2FAD9763203C412B000D30F8 /* config.xml in Resources */,
+				A6FE4CF2821F1740D1257DA3 /* chime.wav in Resources */,
+				68FB4CF5B94BFF50F8532283 /* ding.wav in Resources */,
+				864F4BCCB17793CDCFACC136 /* soft-bell.wav in Resources */,
+				A53F4D44830B7FE965725E53 /* beep.wav in Resources */,
+				BB544BB2A391583B7B56AC9D /* double-beep.wav in Resources */,
+				349A43FAA8259B8CE691ACB0 /* marimba.wav in Resources */,
+				C70B46E993545D9D6A53B8F8 /* pluck.wav in Resources */,
+				661B4CA4913940A81B79EEDD /* triad.wav in Resources */,
+				72184346A960EAE37984A085 /* rising.wav in Resources */,
+				CF2B4AB08D91587421D81E18 /* descending.wav in Resources */,
+				10D5462B9204E6941A015B95 /* bloop.wav in Resources */,
+				B94C430F936BCF8D4E45CF11 /* alert.wav in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

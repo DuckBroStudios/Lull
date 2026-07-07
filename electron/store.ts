@@ -26,6 +26,9 @@ export interface UserSettings {
   theme: 'light' | 'dark'
   soundEnabled: boolean
   panicHotkey: string
+  notifSound: string
+  vibrate: boolean
+  strongAlert: boolean
 }
 
 interface StoreFile {
@@ -39,6 +42,9 @@ const DEFAULT_SETTINGS: UserSettings = {
   theme: 'light',
   soundEnabled: true,
   panicHotkey: '',
+  notifSound: 'chime.wav',
+  vibrate: true,
+  strongAlert: false,
 }
 
 function storePath(): string {

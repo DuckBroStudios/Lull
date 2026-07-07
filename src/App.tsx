@@ -19,6 +19,9 @@ interface UserSettings {
   theme: Theme;
   soundEnabled: boolean;
   panicHotkey: string;
+  notifSound: string;
+  vibrate: boolean;
+  strongAlert: boolean;
 }
 interface SessionUser {
   username: string;
@@ -32,7 +35,35 @@ const DEFAULT_SETTINGS: UserSettings = {
   theme: 'light',
   soundEnabled: true,
   panicHotkey: '',
+  notifSound: 'chime.wav',
+  vibrate: true,
+  strongAlert: false,
 };
+
+// iOS notification sound presets (bundled .wav files; also in public/sounds for preview)
+const NOTIF_SOUNDS: { file: string; label: string }[] = [
+  { file: 'chime.wav', label: 'Chime' },
+  { file: 'ding.wav', label: 'Ding' },
+  { file: 'soft-bell.wav', label: 'Soft Bell' },
+  { file: 'beep.wav', label: 'Beep' },
+  { file: 'double-beep.wav', label: 'Double Beep' },
+  { file: 'marimba.wav', label: 'Marimba' },
+  { file: 'pluck.wav', label: 'Pluck' },
+  { file: 'triad.wav', label: 'Triad' },
+  { file: 'rising.wav', label: 'Rising' },
+  { file: 'descending.wav', label: 'Descending' },
+  { file: 'bloop.wav', label: 'Bloop' },
+  { file: 'alert.wav', label: 'Alert' },
+];
+
+let previewAudio: HTMLAudioElement | null = null;
+function playPreview(file: string) {
+  try {
+    if (previewAudio) previewAudio.pause();
+    previewAudio = new Audio(`sounds/${file}`);
+    previewAudio.play().catch(() => {});
+  } catch { /* ignore */ }
+}
 
 // ============ STORAGE API ============
 // Uses Electron IPC (accounts stored on disk, passwords hashed) when
@@ -323,8 +354,12 @@ export default function App() {
   // No-op on desktop, so the Electron alert path is untouched.
   useEffect(() => {
     if (isAlertWindow || !isNative) return;
-    syncReminderNotifications(reminders);
-  }, [reminders]);
+    syncReminderNotifications(reminders, {
+      sound: settings.notifSound,
+      vibrate: settings.vibrate,
+      strongAlert: settings.strongAlert,
+    });
+  }, [reminders, settings.notifSound, settings.vibrate, settings.strongAlert]);
 
   // save settings whenever they change (per-account, after initial load)
   useEffect(() => {
@@ -1110,6 +1145,51 @@ export default function App() {
                     </span>
                   </button>
                 </div>
+
+                {/* Notification sound + vibration (iOS only) */}
+                {isNative && (
+                  <div className="space-y-4">
+                    <div>
+                      <label className="text-xs uppercase tracking-wider text-ink-muted block mb-2">Notification sound</label>
+                      <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+                        {NOTIF_SOUNDS.map(s => (
+                          <div
+                            key={s.file}
+                            className={`flex items-center gap-3 rounded-2xl border-2 px-3 py-2.5 transition-colors ${settings.notifSound === s.file ? 'border-terra bg-terra-light' : 'border-cream-dark'}`}
+                          >
+                            <button
+                              onClick={() => playPreview(s.file)}
+                              className="w-9 h-9 rounded-full bg-card border border-cream-dark flex items-center justify-center text-terra shrink-0 hover:border-terra transition-colors"
+                              aria-label={`Preview ${s.label}`}
+                            >
+                              <Play size={14} strokeWidth={2.4}/>
+                            </button>
+                            <button
+                              onClick={() => setSettings(st => ({ ...st, notifSound: s.file }))}
+                              className="flex-1 text-left text-ink font-medium text-sm"
+                            >
+                              {s.label}
+                            </button>
+                            {settings.notifSound === s.file && (
+                              <span className="text-[10px] uppercase tracking-wider text-terra font-medium">Selected</span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                      <p className="text-xs text-ink-muted mt-2">Plays when a reminder fires. Tap ▶ to preview.</p>
+                    </div>
+
+                    <div className="flex">
+                      <ToggleRow label="Vibrate on reminders" value={settings.vibrate !== false} onChange={v => setSettings(st => ({ ...st, vibrate: v }))} />
+                    </div>
+                    <div className="flex">
+                      <ToggleRow label="Strong alert (repeat buzzes)" value={!!settings.strongAlert} onChange={v => setSettings(st => ({ ...st, strongAlert: v }))} />
+                    </div>
+                    <p className="text-xs text-ink-muted -mt-1">
+                      Vibration off shows a silent banner (iOS ties the buzz to the sound). Strong alert fires a few notifications a second apart.
+                    </p>
+                  </div>
+                )}
 
                 {/* Panic stop (desktop only — tasks don't exist on iOS) */}
                 {!isNative && (

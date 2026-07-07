@@ -8,6 +8,15 @@ import { LocalNotifications } from '@capacitor/local-notifications';
 
 export const isNative = Capacitor.isNativePlatform();
 
+export interface NotifyOptions {
+  sound?: string;        // preset filename bundled in the app, e.g. 'chime.wav'
+  vibrate?: boolean;     // false => schedule silently (iOS ties vibration to the alert sound)
+  strongAlert?: boolean; // fire a few extra notifications ~1s apart for a longer buzz
+}
+
+// iOS caps pending notifications at 64; stay comfortably under it.
+const MAX_PENDING = 60;
+
 // Ask for notification permission (first launch on device). No-op on desktop.
 export async function requestReminderPermission(): Promise<void> {
   if (!isNative) return;
@@ -16,16 +25,6 @@ export async function requestReminderPermission(): Promise<void> {
   } catch {
     /* user can grant later in iOS Settings */
   }
-}
-
-// Stable positive 31-bit integer id derived from a reminder's id (iOS/Android
-// notification ids must be numbers). `offset` gives recurring reminders that
-// need several scheduled entries their own distinct ids.
-function notifId(reminderId: string | number, offset = 0): number {
-  const str = String(reminderId);
-  let h = 0;
-  for (let i = 0; i < str.length; i++) h = (Math.imul(h, 31) + str.charCodeAt(i)) | 0;
-  return (Math.abs(h) % 1000000000) + offset;
 }
 
 // Next occurrence strictly after `now` for a repeating reminder — mirrors the
@@ -43,39 +42,56 @@ function nextTrigger(ts: number, repeat: string, now: number): number {
   return d.getTime();
 }
 
-// Turn one reminder into one or more LocalNotifications schedule entries.
-// `sound: 'default'` makes iOS play its default alert sound (and vibrate per the
-// device's settings); the banner + sound fire whether the app is open or closed.
-function buildForReminder(r: any, now: number): any[] {
-  const base = { title: r.title || 'Reminder', body: r.description || 'Reminder', sound: 'default' };
+// Notification content shared by every entry for a reminder. When vibration is
+// off we omit the sound entirely so iOS shows a quiet banner (no buzz).
+function contentBase(r: any, opts: NotifyOptions): any {
+  const base: any = { title: r.title || 'Reminder', body: r.description || 'Reminder' };
+  if (opts.vibrate !== false) base.sound = opts.sound || 'default';
+  return base;
+}
+
+// Build the schedule entries (without ids — ids are assigned in the sync step,
+// since we cancel-all and reschedule every time, so they only need to be unique
+// within a batch).
+function buildForReminder(r: any, now: number, opts: NotifyOptions): any[] {
+  const base = contentBase(r, opts);
   const repeat = r.repeat && r.repeat !== 'none' ? r.repeat : 'none';
 
+  let entries: any[] = [];
   if (repeat === 'none') {
     if (r.triggerAt <= now) return [];
-    return [{ ...base, id: notifId(r.id), schedule: { at: new Date(r.triggerAt), allowWhileIdle: true } }];
-  }
-
-  if (repeat === 'daily' || repeat === 'weekly') {
+    entries = [{ ...base, schedule: { at: new Date(r.triggerAt), allowWhileIdle: true } }];
+  } else if (repeat === 'daily' || repeat === 'weekly') {
     const at = new Date(nextTrigger(r.triggerAt, repeat, now));
     const every = repeat === 'daily' ? 'day' : 'week';
-    return [{ ...base, id: notifId(r.id), schedule: { at, every, allowWhileIdle: true } }];
+    entries = [{ ...base, schedule: { at, every, allowWhileIdle: true } }];
+  } else {
+    // 'weekdays' — schedule several upcoming occurrences (fewer when strong-alert
+    // triples the count) and refresh them whenever the app opens.
+    const count = opts.strongAlert ? 5 : 14;
+    let t = r.triggerAt;
+    for (let i = 0; i < count; i++) {
+      t = nextTrigger(t, 'weekdays', i === 0 ? now : t - 1);
+      entries.push({ ...base, schedule: { at: new Date(t), allowWhileIdle: true } });
+    }
   }
 
-  // 'weekdays' has no single native repeat rule, so schedule the next 14
-  // weekday occurrences as individual entries; they get refreshed whenever the
-  // app opens and this sync runs again.
-  const out: any[] = [];
-  let t = r.triggerAt;
-  for (let i = 0; i < 14; i++) {
-    t = nextTrigger(t, 'weekdays', i === 0 ? now : t - 1);
-    out.push({ ...base, id: notifId(r.id, i + 1), schedule: { at: new Date(t), allowWhileIdle: true } });
+  if (!opts.strongAlert) return entries;
+
+  // Strong alert: clone each entry into 3 that fire ~1.2s apart for a longer buzz.
+  const expanded: any[] = [];
+  for (const e of entries) {
+    for (let k = 0; k < 3; k++) {
+      const at = new Date(e.schedule.at.getTime() + k * 1200);
+      expanded.push({ ...e, schedule: { ...e.schedule, at } });
+    }
   }
-  return out;
+  return expanded;
 }
 
 // Cancel whatever we previously scheduled and re-schedule from current state.
-// Call this whenever the reminder list changes. No-op on desktop.
-export async function syncReminderNotifications(reminders: any[]): Promise<void> {
+// Call this whenever the reminder list OR notification settings change. No-op on desktop.
+export async function syncReminderNotifications(reminders: any[], opts: NotifyOptions = {}): Promise<void> {
   if (!isNative) return;
   try {
     const pending = await LocalNotifications.getPending();
@@ -83,11 +99,13 @@ export async function syncReminderNotifications(reminders: any[]): Promise<void>
       await LocalNotifications.cancel({ notifications: pending.notifications.map(n => ({ id: n.id })) });
     }
     const now = Date.now();
-    const notifications: any[] = [];
+    const built: any[] = [];
     for (const r of reminders) {
       if (r.dismissed) continue;
-      for (const entry of buildForReminder(r, now)) notifications.push(entry);
+      for (const entry of buildForReminder(r, now, opts)) built.push(entry);
     }
+    // assign unique ids and cap to iOS's pending limit
+    const notifications = built.slice(0, MAX_PENDING).map((e, i) => ({ ...e, id: i + 1 }));
     if (notifications.length) await LocalNotifications.schedule({ notifications });
   } catch {
     /* scheduling is best-effort */
