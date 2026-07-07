@@ -640,6 +640,20 @@ export default function App() {
       .theme-dark input[type="time"]::-webkit-calendar-picker-indicator {
         filter: invert(1); opacity: 0.6;
       }
+
+      /* ===== Mobile layout only (desktop >600px untouched) ===== */
+      @media (max-width: 600px) {
+        .lull-page { padding: 26px 18px !important; }
+        .lull-header { flex-direction: column !important; gap: 16px; margin-bottom: 32px !important; }
+        .lull-header-right { width: 100%; justify-content: space-between; }
+        .lull-actions { flex-direction: column !important; align-items: stretch !important; margin-bottom: 32px !important; }
+        .lull-actions > button { width: 100%; justify-content: center; padding: 16px 20px !important; }
+        .lull-modal-overlay { padding: 12px !important; }
+        .lull-modal { padding: 22px !important; border-radius: 24px; max-height: 94vh; }
+        .lull-form-2col { grid-template-columns: 1fr !important; }
+        .lull-iconbtn { padding: 11px !important; }
+        .lull-page, .lull-modal { overflow-wrap: anywhere; }
+      }
     `}</style>
   );
 
@@ -717,8 +731,8 @@ export default function App() {
       <div className={`${themeClass} min-h-screen font-body text-ink relative`} style={{ background: `linear-gradient(180deg, var(--page-top) 0%, var(--page-bottom) 100%)` }}>
         <div className="absolute top-0 right-0 w-96 h-96 rounded-full pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(200,85,61,0.12), transparent 70%)' }}/>
 
-        <div className="max-w-6xl mx-auto px-6 sm:px-10 py-10 sm:py-14 relative">
-          <header className="flex items-start justify-between mb-12 sm:mb-16 animate-fade-up">
+        <div className="max-w-6xl mx-auto px-6 sm:px-10 py-10 sm:py-14 relative lull-page">
+          <header className="flex items-start justify-between mb-12 sm:mb-16 animate-fade-up lull-header">
             <div>
               <p className="text-xs uppercase tracking-[0.25em] text-ink-muted mb-2">
                 {settings.displayName ? `Hello, ${settings.displayName}` : 'A reminder app'}
@@ -727,7 +741,7 @@ export default function App() {
                 Lull<span className="text-terra italic font-normal">.</span>
               </h1>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 lull-header-right">
               <div className="bg-card/70 backdrop-blur rounded-full px-5 py-3 border border-cream-dark flex items-center gap-3 shadow-sm">
                 <Clock size={16} className="text-terra" strokeWidth={1.8}/>
                 <div className="text-right">
@@ -752,7 +766,7 @@ export default function App() {
             </h2>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3 mb-12 sm:mb-16 animate-fade-up" style={{ animationDelay: '0.2s' }}>
+          <div className="flex flex-wrap items-center gap-3 mb-12 sm:mb-16 animate-fade-up lull-actions" style={{ animationDelay: '0.2s' }}>
             <button
               onClick={openForm}
               className="bg-ink text-cream rounded-full px-7 py-4 inline-flex items-center gap-3 font-medium hover:bg-terra transition-colors duration-300 group shadow-lg"
@@ -882,10 +896,10 @@ export default function App() {
                         >
                           {isRunning ? <><Square size={14} strokeWidth={2.4}/> Stop</> : <><Play size={14} strokeWidth={2.4}/> Start</>}
                         </button>
-                        <button onClick={() => editTask(t)} className="p-2.5 rounded-full border border-cream-dark text-ink-muted hover:text-terra hover:border-terra transition-colors" aria-label="Edit task">
+                        <button onClick={() => editTask(t)} className="p-2.5 rounded-full border border-cream-dark text-ink-muted hover:text-terra hover:border-terra transition-colors lull-iconbtn" aria-label="Edit task">
                           <Pencil size={14} strokeWidth={1.9}/>
                         </button>
-                        <button onClick={() => deleteTask(t.id)} className="p-2.5 rounded-full border border-cream-dark text-ink-muted hover:text-terra hover:border-terra transition-colors" aria-label="Delete task">
+                        <button onClick={() => deleteTask(t.id)} className="p-2.5 rounded-full border border-cream-dark text-ink-muted hover:text-terra hover:border-terra transition-colors lull-iconbtn" aria-label="Delete task">
                           <Trash2 size={14} strokeWidth={1.9}/>
                         </button>
                       </div>
@@ -903,8 +917,8 @@ export default function App() {
 
         {/* ============ FORM MODAL ============ */}
         {showForm && (
-          <div className="fixed inset-0 z-40 flex items-center justify-center p-4 animate-fade-in" style={{ background: 'rgba(31, 36, 33, 0.5)', backdropFilter: 'blur(8px)' }}>
-            <div className="bg-cream rounded-3xl max-w-lg w-full p-8 sm:p-10 max-h-[92vh] overflow-y-auto animate-slide-down border border-cream-dark" style={{ boxShadow: '0 30px 80px -20px rgba(31, 36, 33, 0.4)' }}>
+          <div className="fixed inset-0 z-40 flex items-center justify-center p-4 animate-fade-in lull-modal-overlay" style={{ background: 'rgba(31, 36, 33, 0.5)', backdropFilter: 'blur(8px)' }}>
+            <div className="bg-cream rounded-3xl max-w-lg w-full p-8 sm:p-10 max-h-[92vh] overflow-y-auto animate-slide-down border border-cream-dark lull-modal" style={{ boxShadow: '0 30px 80px -20px rgba(31, 36, 33, 0.4)' }}>
               <div className="flex items-start justify-between mb-8">
                 <div>
                   <p className="text-xs uppercase tracking-[0.25em] text-ink-muted mb-2">Compose</p>
@@ -938,7 +952,7 @@ export default function App() {
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-4 lull-form-2col">
                   <div>
                     <label className="text-xs uppercase tracking-wider text-ink-muted block mb-2">Date</label>
                     <input
@@ -1023,8 +1037,8 @@ export default function App() {
 
         {/* ============ SETTINGS MODAL ============ */}
         {showSettings && (
-          <div className="fixed inset-0 z-40 flex items-center justify-center p-4 animate-fade-in" style={{ background: 'rgba(31, 36, 33, 0.5)', backdropFilter: 'blur(8px)' }}>
-            <div className="bg-cream rounded-3xl max-w-lg w-full p-8 sm:p-10 max-h-[92vh] overflow-y-auto animate-slide-down border border-cream-dark" style={{ boxShadow: '0 30px 80px -20px rgba(31, 36, 33, 0.4)' }}>
+          <div className="fixed inset-0 z-40 flex items-center justify-center p-4 animate-fade-in lull-modal-overlay" style={{ background: 'rgba(31, 36, 33, 0.5)', backdropFilter: 'blur(8px)' }}>
+            <div className="bg-cream rounded-3xl max-w-lg w-full p-8 sm:p-10 max-h-[92vh] overflow-y-auto animate-slide-down border border-cream-dark lull-modal" style={{ boxShadow: '0 30px 80px -20px rgba(31, 36, 33, 0.4)' }}>
               <div className="flex items-start justify-between mb-8">
                 <div>
                   <p className="text-xs uppercase tracking-[0.25em] text-ink-muted mb-2">Account</p>
@@ -1311,9 +1325,9 @@ function TaskModal({ initial, onCancel, onSave }: { initial: Macro | null; onCan
 
   const setConfig = (patch: any) => setDraft(d => (d ? { ...d, config: { ...d.config, ...patch } } : d));
 
-  const overlay = 'fixed inset-0 z-40 flex items-center justify-center p-4 animate-fade-in';
+  const overlay = 'fixed inset-0 z-40 flex items-center justify-center p-4 animate-fade-in lull-modal-overlay';
   const overlayStyle = { background: 'rgba(31, 36, 33, 0.5)', backdropFilter: 'blur(8px)' } as any;
-  const panel = 'bg-cream rounded-3xl max-w-lg w-full p-8 sm:p-10 max-h-[92vh] overflow-y-auto animate-slide-down border border-cream-dark';
+  const panel = 'bg-cream rounded-3xl max-w-lg w-full p-8 sm:p-10 max-h-[92vh] overflow-y-auto animate-slide-down border border-cream-dark lull-modal';
   const panelStyle = { boxShadow: '0 30px 80px -20px rgba(31, 36, 33, 0.4)' } as any;
 
   // ----- Step 1: preset picker -----
@@ -1393,7 +1407,7 @@ function TaskModal({ initial, onCancel, onSave }: { initial: Macro | null; onCan
                   <input type="number" min={1} max={200} value={c.cps} onChange={e => setConfig({ cps: clampVal(e.target.value, 1, 200) })} className={inputCls} />
                 </Field>
               ) : (
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-4 lull-form-2col">
                   <Field label="Hold (seconds)">
                     <input type="number" min={0.05} step={0.05} value={c.holdSeconds} onChange={e => setConfig({ holdSeconds: numVal(e.target.value) })} className={inputCls} />
                   </Field>
@@ -1456,7 +1470,7 @@ function TaskModal({ initial, onCancel, onSave }: { initial: Macro | null; onCan
               <Field label="Text to type">
                 <textarea rows={3} value={c.text} onChange={e => setConfig({ text: e.target.value })} className={`${inputCls} resize-none`} />
               </Field>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-4 lull-form-2col">
                 <Field label="Start delay (ms)">
                   <input type="number" min={0} value={c.startDelayMs} onChange={e => setConfig({ startDelayMs: numVal(e.target.value) })} className={inputCls} />
                 </Field>
@@ -1472,7 +1486,7 @@ function TaskModal({ initial, onCancel, onSave }: { initial: Macro | null; onCan
           )}
 
           {draft.type === 'mousejiggler' && (
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-4 lull-form-2col">
               <Field label="Every (seconds)">
                 <input type="number" min={1} value={c.intervalSeconds} onChange={e => setConfig({ intervalSeconds: numVal(e.target.value) })} className={inputCls} />
               </Field>
