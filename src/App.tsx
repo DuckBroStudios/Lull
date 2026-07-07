@@ -776,15 +776,17 @@ export default function App() {
               </span>
               New reminder
             </button>
-            <button
-              onClick={openNewTask}
-              className="bg-card text-ink rounded-full px-7 py-4 inline-flex items-center gap-3 font-medium border-2 border-cream-dark hover:border-terra hover:text-terra transition-colors duration-300 group shadow-sm"
-            >
-              <span className="bg-terra text-cream rounded-full w-7 h-7 flex items-center justify-center transition-colors">
-                <Zap size={15} strokeWidth={2.5}/>
-              </span>
-              New task
-            </button>
+            {!isNative && (
+              <button
+                onClick={openNewTask}
+                className="bg-card text-ink rounded-full px-7 py-4 inline-flex items-center gap-3 font-medium border-2 border-cream-dark hover:border-terra hover:text-terra transition-colors duration-300 group shadow-sm"
+              >
+                <span className="bg-terra text-cream rounded-full w-7 h-7 flex items-center justify-center transition-colors">
+                  <Zap size={15} strokeWidth={2.5}/>
+                </span>
+                New task
+              </button>
+            )}
           </div>
 
           {upcoming.length === 0 ? (
@@ -843,7 +845,7 @@ export default function App() {
             </div>
           )}
 
-          {tasks.length > 0 && (
+          {!isNative && tasks.length > 0 && (
             <div className="mt-16 animate-fade-up">
               <div className="flex items-center gap-3 mb-6">
                 <Zap className="text-terra" size={22} strokeWidth={1.8}/>
@@ -1109,7 +1111,8 @@ export default function App() {
                   </button>
                 </div>
 
-                {/* Panic stop */}
+                {/* Panic stop (desktop only — tasks don't exist on iOS) */}
+                {!isNative && (
                 <div>
                   <label className="text-xs uppercase tracking-wider text-ink-muted block mb-2">Panic-stop hotkey</label>
                   <input
@@ -1126,6 +1129,7 @@ export default function App() {
                     <Square size={14} strokeWidth={2.4}/> Stop all tasks now
                   </button>
                 </div>
+                )}
 
                 {/* Logout */}
                 <button

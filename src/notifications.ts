@@ -44,8 +44,10 @@ function nextTrigger(ts: number, repeat: string, now: number): number {
 }
 
 // Turn one reminder into one or more LocalNotifications schedule entries.
+// `sound: 'default'` makes iOS play its default alert sound (and vibrate per the
+// device's settings); the banner + sound fire whether the app is open or closed.
 function buildForReminder(r: any, now: number): any[] {
-  const base = { title: r.title || 'Reminder', body: r.description || 'Reminder' };
+  const base = { title: r.title || 'Reminder', body: r.description || 'Reminder', sound: 'default' };
   const repeat = r.repeat && r.repeat !== 'none' ? r.repeat : 'none';
 
   if (repeat === 'none') {
