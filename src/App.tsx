@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Plus, X, Image as ImageIcon, Trash2, AlarmClock, Bell, Clock, Settings, LogOut, User, Moon, Sun, Volume2, VolumeX, Eye, EyeOff, Zap, Play, Square, MousePointerClick, Keyboard, Type, Move, Globe, Pencil, ChevronLeft, AlertTriangle, Music, Pause } from 'lucide-react';
+import { Plus, X, Image as ImageIcon, Trash2, AlarmClock, Bell, Clock, Settings, LogOut, User, Moon, Sun, Volume2, VolumeX, Eye, EyeOff, Zap, Play, Square, MousePointerClick, Keyboard, Type, Move, Globe, Pencil, ChevronLeft, AlertTriangle, Music, Pause, Lock } from 'lucide-react';
 import { isNative, requestReminderPermission, syncReminderNotifications } from './notifications';
+import { registerPlugin } from '@capacitor/core';
 
 // detect if this window is the alert popup
 const urlParams = new URLSearchParams(window.location.search);
@@ -188,21 +189,33 @@ const SOUND_PACKS: Record<string, { label: string; files: string[] }> = {
 };
 const SOUND_PACK_KEYS = ['all', 'soft', 'retro', 'nature'];
 
-const APP_ICONS = [
-  { key: 'default', label: 'Ink', preview: 'icons/icon-default.png' },
-  { key: 'terra', label: 'Terra', preview: 'icons/icon-terra.png' },
-  { key: 'forest', label: 'Forest', preview: 'icons/icon-forest.png' },
-  { key: 'cream', label: 'Cream', preview: 'icons/icon-cream.png' },
+const APP_ICONS: { key: string; label: string; preview: string; period: string }[] = [
+  { key: 'default', label: 'Ink', preview: 'icons/icon-default.png', period: 'any' },
+  { key: 'terra', label: 'Terra', preview: 'icons/icon-terra.png', period: 'any' },
+  { key: 'forest', label: 'Forest', preview: 'icons/icon-forest.png', period: 'any' },
+  { key: 'cream', label: 'Cream', preview: 'icons/icon-cream.png', period: 'any' },
+  { key: 'spring', label: 'Spring', preview: 'icons/icon-spring.png', period: 'spring' },
+  { key: 'summer', label: 'Summer', preview: 'icons/icon-summer.png', period: 'summer' },
+  { key: 'autumn', label: 'Autumn', preview: 'icons/icon-autumn.png', period: 'autumn' },
+  { key: 'winter', label: 'Winter', preview: 'icons/icon-winter.png', period: 'winter' },
+  { key: 'easter', label: 'Easter', preview: 'icons/icon-easter.png', period: 'easter' },
+  { key: 'halloween', label: 'Halloween', preview: 'icons/icon-halloween.png', period: 'halloween' },
+  { key: 'christmas', label: 'Christmas', preview: 'icons/icon-christmas.png', period: 'christmas' },
+  { key: 'newyear', label: 'New Year', preview: 'icons/icon-newyear.png', period: 'newyear' },
 ];
 
+const AppIconPlugin = registerPlugin<any>('AppIcon');
+const APP_ICON_NAMES: Record<string, string> = {
+  terra: 'IconTerra', forest: 'IconForest', cream: 'IconCream',
+  spring: 'IconSpring', summer: 'IconSummer', autumn: 'IconAutumn', winter: 'IconWinter',
+  easter: 'IconEaster', halloween: 'IconHalloween', christmas: 'IconChristmas', newyear: 'IconNewyear',
+};
 async function applyAppIcon(key: string) {
   if (!isNative) return;
   try {
-    // Uses a native alternate-icon plugin if present; no-ops (build-safe) until one is wired.
-    const plugins = (window as any)?.Capacitor?.Plugins;
-    const p = plugins?.DynamicIcon || plugins?.AlternateIcon;
-    if (p?.setIcon) await p.setIcon({ name: key === 'default' ? null : key });
-  } catch { /* no-op */ }
+    // key 'default' -> null resets to the primary (asset-catalog) icon
+    await AppIconPlugin.change({ name: key === 'default' ? null : (APP_ICON_NAMES[key] || null), suppressNotification: true });
+  } catch { /* native plugin unavailable */ }
 }
 
 // iOS notification sound presets (bundled .wav files; also in public/sounds for preview)
@@ -575,6 +588,16 @@ export default function App() {
       a.pause();
     }
   }, [settings.music, musicTrack]);
+
+  // seasonal/holiday app icons expire: if the set icon is outside its window, revert to default
+  useEffect(() => {
+    if (!isNative || !loaded) return;
+    const ic = APP_ICONS.find(a => a.key === settings.appIcon);
+    if (ic && ic.period !== 'any' && ic.period !== decorThemeOf(new Date())) {
+      setSettings(s => ({ ...s, appIcon: 'default' }));
+      applyAppIcon('default');
+    }
+  }, [loaded]);
 
   // ask for notification permission once
   useEffect(() => {
@@ -1441,19 +1464,31 @@ export default function App() {
                   <div>
                     <label className="text-xs uppercase tracking-wider text-ink-muted block mb-2">App icon</label>
                     <div className="grid grid-cols-4 gap-3">
-                      {APP_ICONS.map(ic => (
-                        <button
-                          key={ic.key}
-                          type="button"
-                          onClick={() => { setSettings(s => ({ ...s, appIcon: ic.key })); applyAppIcon(ic.key); }}
-                          className={`rounded-2xl border-2 p-1.5 transition-all ${settings.appIcon === ic.key ? 'border-terra' : 'border-cream-dark'}`}
-                        >
-                          <img src={ic.preview} alt={ic.label} className="w-full aspect-square rounded-xl bg-cream-dark object-cover"/>
-                          <div className="text-[10px] text-center text-ink-muted mt-1">{ic.label}</div>
-                        </button>
-                      ))}
+                      {APP_ICONS.map(ic => {
+                        const available = ic.period === 'any' || ic.period === decorThemeOf(new Date());
+                        return (
+                          <button
+                            key={ic.key}
+                            type="button"
+                            disabled={!available}
+                            onClick={() => { if (!available) return; setSettings(s => ({ ...s, appIcon: ic.key })); applyAppIcon(ic.key); }}
+                            className={`rounded-2xl border-2 p-1.5 transition-all ${settings.appIcon === ic.key ? 'border-terra' : 'border-cream-dark'} ${available ? '' : 'opacity-45'}`}
+                            title={available ? ic.label : `${ic.label} — only available in ${ic.label}`}
+                          >
+                            <div className="relative">
+                              <img src={ic.preview} alt={ic.label} className="w-full aspect-square rounded-xl bg-cream-dark object-cover"/>
+                              {!available && (
+                                <div className="absolute inset-0 flex items-center justify-center rounded-xl" style={{ background: 'rgba(31,36,33,0.35)' }}>
+                                  <Lock size={16} className="text-cream"/>
+                                </div>
+                              )}
+                            </div>
+                            <div className="text-[10px] text-center text-ink-muted mt-1 truncate">{ic.label}</div>
+                          </button>
+                        );
+                      })}
                     </div>
-                    <p className="text-xs text-ink-muted mt-2">Home-screen icon changes apply on a device build once the alternate-icon plugin is added.</p>
+                    <p className="text-xs text-ink-muted mt-2">Changes your home-screen icon (device build only). Seasonal and holiday icons unlock during their time of year.</p>
                   </div>
                 )}
 

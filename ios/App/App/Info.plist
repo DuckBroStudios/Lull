@@ -2,14 +2,119 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <key>CAPACITOR_DEBUG</key>
+	<key>CAPACITOR_DEBUG</key>
 	<string>$(CAPACITOR_DEBUG)</string>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
-        <string>lull</string>
+	<string>lull</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
+	<key>CFBundleIcons</key>
+	<dict>
+		<key>CFBundleAlternateIcons</key>
+		<dict>
+			<key>IconAutumn</key>
+			<dict>
+				<key>CFBundleIconFiles</key>
+				<array>
+					<string>IconAutumn</string>
+				</array>
+				<key>UIPrerenderedIcon</key>
+				<false/>
+			</dict>
+			<key>IconChristmas</key>
+			<dict>
+				<key>CFBundleIconFiles</key>
+				<array>
+					<string>IconChristmas</string>
+				</array>
+				<key>UIPrerenderedIcon</key>
+				<false/>
+			</dict>
+			<key>IconCream</key>
+			<dict>
+				<key>CFBundleIconFiles</key>
+				<array>
+					<string>IconCream</string>
+				</array>
+				<key>UIPrerenderedIcon</key>
+				<false/>
+			</dict>
+			<key>IconEaster</key>
+			<dict>
+				<key>CFBundleIconFiles</key>
+				<array>
+					<string>IconEaster</string>
+				</array>
+				<key>UIPrerenderedIcon</key>
+				<false/>
+			</dict>
+			<key>IconForest</key>
+			<dict>
+				<key>CFBundleIconFiles</key>
+				<array>
+					<string>IconForest</string>
+				</array>
+				<key>UIPrerenderedIcon</key>
+				<false/>
+			</dict>
+			<key>IconHalloween</key>
+			<dict>
+				<key>CFBundleIconFiles</key>
+				<array>
+					<string>IconHalloween</string>
+				</array>
+				<key>UIPrerenderedIcon</key>
+				<false/>
+			</dict>
+			<key>IconNewyear</key>
+			<dict>
+				<key>CFBundleIconFiles</key>
+				<array>
+					<string>IconNewyear</string>
+				</array>
+				<key>UIPrerenderedIcon</key>
+				<false/>
+			</dict>
+			<key>IconSpring</key>
+			<dict>
+				<key>CFBundleIconFiles</key>
+				<array>
+					<string>IconSpring</string>
+				</array>
+				<key>UIPrerenderedIcon</key>
+				<false/>
+			</dict>
+			<key>IconSummer</key>
+			<dict>
+				<key>CFBundleIconFiles</key>
+				<array>
+					<string>IconSummer</string>
+				</array>
+				<key>UIPrerenderedIcon</key>
+				<false/>
+			</dict>
+			<key>IconTerra</key>
+			<dict>
+				<key>CFBundleIconFiles</key>
+				<array>
+					<string>IconTerra</string>
+				</array>
+				<key>UIPrerenderedIcon</key>
+				<false/>
+			</dict>
+			<key>IconWinter</key>
+			<dict>
+				<key>CFBundleIconFiles</key>
+				<array>
+					<string>IconWinter</string>
+				</array>
+				<key>UIPrerenderedIcon</key>
+				<false/>
+			</dict>
+		</dict>
+	</dict>
 	<key>CFBundleIdentifier</key>
 	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
 	<key>CFBundleInfoDictionaryVersion</key>

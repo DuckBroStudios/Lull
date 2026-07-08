@@ -8,8 +8,17 @@
 
 /* Begin PBXBuildFile section */
 		10D5462B9204E6941A015B95 /* bloop.wav in Resources */ = {isa = PBXBuildFile; fileRef = 0DC2472988358518CE75D8A6 /* bloop.wav */; };
+		15EA4C49A62B433BA56BA1DC /* IconAutumn@3x.png in Resources */ = {isa = PBXBuildFile; fileRef = 19EB427BA20B44148C01819D /* IconAutumn@3x.png */; };
+		1D684953B71538B1FAB107CA /* IconCream@2x.png in Resources */ = {isa = PBXBuildFile; fileRef = 8378443FB38159A5D9E277AB /* IconCream@2x.png */; };
+		1DFB406D8873FD53F4A470DC /* IconChristmas@3x.png in Resources */ = {isa = PBXBuildFile; fileRef = 7B264F758827821FB1D5D4D9 /* IconChristmas@3x.png */; };
+		204A4FAAB76DCFE004DC4B4D /* IconHalloween@3x.png in Resources */ = {isa = PBXBuildFile; fileRef = 7F0B46E9B304C7C43F4E551A /* IconHalloween@3x.png */; };
+		22AA444ABBE94E2AC3C98CE0 /* IconSpring@3x.png in Resources */ = {isa = PBXBuildFile; fileRef = 527C421686D01E2786EAB1CB /* IconSpring@3x.png */; };
+		264944EA87A1855B603B9664 /* IconForest@2x.png in Resources */ = {isa = PBXBuildFile; fileRef = C16440A1B61CA36F10CEB803 /* IconForest@2x.png */; };
 		2FAD9763203C412B000D30F8 /* config.xml in Resources */ = {isa = PBXBuildFile; fileRef = 2FAD9762203C412B000D30F8 /* config.xml */; };
+		333C4E1B8215290457F16CE2 /* IconTerra@3x.png in Resources */ = {isa = PBXBuildFile; fileRef = 16DC40279989340E9E515A85 /* IconTerra@3x.png */; };
 		349A43FAA8259B8CE691ACB0 /* marimba.wav in Resources */ = {isa = PBXBuildFile; fileRef = CED44204AEC24F707753F7D5 /* marimba.wav */; };
+		43F8452BBEC95B1734D9E3CA /* IconSummer@2x.png in Resources */ = {isa = PBXBuildFile; fileRef = FA4A450C9053896E9AA90AB8 /* IconSummer@2x.png */; };
+		46BA4F79ADC8AB50DEB2A4BF /* IconEaster@2x.png in Resources */ = {isa = PBXBuildFile; fileRef = 589A42C2A7F36C1CAD6982AF /* IconEaster@2x.png */; };
 		4D22ABE92AF431CB00220026 /* CapApp-SPM in Frameworks */ = {isa = PBXBuildFile; productRef = 4D22ABE82AF431CB00220026 /* CapApp-SPM */; };
 		50379B232058CBB4000EE86E /* capacitor.config.json in Resources */ = {isa = PBXBuildFile; fileRef = 50379B222058CBB4000EE86E /* capacitor.config.json */; };
 		504EC3081FED79650016851F /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 504EC3071FED79650016851F /* AppDelegate.swift */; };
@@ -18,22 +27,40 @@
 		504EC3121FED79650016851F /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 504EC3101FED79650016851F /* LaunchScreen.storyboard */; };
 		50B271D11FEDC1A000F3C39B /* public in Resources */ = {isa = PBXBuildFile; fileRef = 50B271D01FEDC1A000F3C39B /* public */; };
 		661B4CA4913940A81B79EEDD /* triad.wav in Resources */ = {isa = PBXBuildFile; fileRef = 64C44DC89E3667A215018CB0 /* triad.wav */; };
+		67DE460B85DD1A3505E326FF /* IconNewyear@2x.png in Resources */ = {isa = PBXBuildFile; fileRef = 87034E6A862641C489E3E6D1 /* IconNewyear@2x.png */; };
 		68FB4CF5B94BFF50F8532283 /* ding.wav in Resources */ = {isa = PBXBuildFile; fileRef = C5D84AE2B35FEF341014AD23 /* ding.wav */; };
+		6A4C4986B53301B92340BBA7 /* IconAutumn@2x.png in Resources */ = {isa = PBXBuildFile; fileRef = 0AB04630AD01EAA2CA3729BC /* IconAutumn@2x.png */; };
 		72184346A960EAE37984A085 /* rising.wav in Resources */ = {isa = PBXBuildFile; fileRef = 2E7B4F7E8280BCF4F50C29DE /* rising.wav */; };
+		7BFD4FCFADF0C6AAB2419F3F /* IconEaster@3x.png in Resources */ = {isa = PBXBuildFile; fileRef = 1D9C46D4B2E4A12B37D1FEFD /* IconEaster@3x.png */; };
+		7ED34FEAA4900D6229A20CD8 /* IconSummer@3x.png in Resources */ = {isa = PBXBuildFile; fileRef = A3814E3E898E68B4B2F9C9F3 /* IconSummer@3x.png */; };
 		864F4BCCB17793CDCFACC136 /* soft-bell.wav in Resources */ = {isa = PBXBuildFile; fileRef = 52204284BF5CB5E661F0E7F3 /* soft-bell.wav */; };
+		A47446328028090BF99F5826 /* IconForest@3x.png in Resources */ = {isa = PBXBuildFile; fileRef = 7FD046D691C7DE7CABDC8BC2 /* IconForest@3x.png */; };
+		A4A44C68BD52723AFA551E31 /* IconWinter@3x.png in Resources */ = {isa = PBXBuildFile; fileRef = 440D46ACAA30C97D663C66FB /* IconWinter@3x.png */; };
 		A53F4D44830B7FE965725E53 /* beep.wav in Resources */ = {isa = PBXBuildFile; fileRef = 7C0C4A52AA8C9ADDFEEA4088 /* beep.wav */; };
 		A6FE4CF2821F1740D1257DA3 /* chime.wav in Resources */ = {isa = PBXBuildFile; fileRef = E35C4ECDA614F5608A4BCA85 /* chime.wav */; };
+		ACCB4DF5BEF4ED6122FB117E /* IconNewyear@3x.png in Resources */ = {isa = PBXBuildFile; fileRef = D5494DF5A1C8B3B310420EB0 /* IconNewyear@3x.png */; };
+		B16A4757BAA10F870675D445 /* IconTerra@2x.png in Resources */ = {isa = PBXBuildFile; fileRef = 66A74C39B444A94D245036D9 /* IconTerra@2x.png */; };
+		B23047509FB2CE04C851F7C6 /* IconCream@3x.png in Resources */ = {isa = PBXBuildFile; fileRef = 980840F5957BB0F8286D99CD /* IconCream@3x.png */; };
 		B94C430F936BCF8D4E45CF11 /* alert.wav in Resources */ = {isa = PBXBuildFile; fileRef = 6B1448C59011E0B8B6255C1D /* alert.wav */; };
 		BB544BB2A391583B7B56AC9D /* double-beep.wav in Resources */ = {isa = PBXBuildFile; fileRef = 4BF54C7FA57FB8198B31AB7D /* double-beep.wav */; };
+		BBF046D3AA15E3946E392CAA /* IconHalloween@2x.png in Resources */ = {isa = PBXBuildFile; fileRef = 535A474FAA632F27239A10A9 /* IconHalloween@2x.png */; };
 		C70B46E993545D9D6A53B8F8 /* pluck.wav in Resources */ = {isa = PBXBuildFile; fileRef = BB0B4D8FBBF3CA52F4987B25 /* pluck.wav */; };
 		CF2B4AB08D91587421D81E18 /* descending.wav in Resources */ = {isa = PBXBuildFile; fileRef = 34E94B6FAA9994E82490477A /* descending.wav */; };
+		D2344EB2965A59C4EE8D02A9 /* IconSpring@2x.png in Resources */ = {isa = PBXBuildFile; fileRef = 81D144A78066E4C40226A82F /* IconSpring@2x.png */; };
+		DFCC4B8A8733B322163FDB64 /* IconWinter@2x.png in Resources */ = {isa = PBXBuildFile; fileRef = E2D74A0EBFBBEFD0C551BB6C /* IconWinter@2x.png */; };
+		F2744E48ACFF748A9EC083A7 /* IconChristmas@2x.png in Resources */ = {isa = PBXBuildFile; fileRef = BF1E424E900E84E0E4E92F9A /* IconChristmas@2x.png */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		0AB04630AD01EAA2CA3729BC /* IconAutumn@2x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = "IconAutumn@2x.png"; path = "App/IconAutumn@2x.png"; sourceTree = SOURCE_ROOT; };
 		0DC2472988358518CE75D8A6 /* bloop.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; name = bloop.wav; path = App/sounds/bloop.wav; sourceTree = SOURCE_ROOT; };
+		16DC40279989340E9E515A85 /* IconTerra@3x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = "IconTerra@3x.png"; path = "App/IconTerra@3x.png"; sourceTree = SOURCE_ROOT; };
+		19EB427BA20B44148C01819D /* IconAutumn@3x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = "IconAutumn@3x.png"; path = "App/IconAutumn@3x.png"; sourceTree = SOURCE_ROOT; };
+		1D9C46D4B2E4A12B37D1FEFD /* IconEaster@3x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = "IconEaster@3x.png"; path = "App/IconEaster@3x.png"; sourceTree = SOURCE_ROOT; };
 		2E7B4F7E8280BCF4F50C29DE /* rising.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; name = rising.wav; path = App/sounds/rising.wav; sourceTree = SOURCE_ROOT; };
 		2FAD9762203C412B000D30F8 /* config.xml */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = config.xml; sourceTree = "<group>"; };
 		34E94B6FAA9994E82490477A /* descending.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; name = descending.wav; path = App/sounds/descending.wav; sourceTree = SOURCE_ROOT; };
+		440D46ACAA30C97D663C66FB /* IconWinter@3x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = "IconWinter@3x.png"; path = "App/IconWinter@3x.png"; sourceTree = SOURCE_ROOT; };
 		4BF54C7FA57FB8198B31AB7D /* double-beep.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; name = "double-beep.wav"; path = "App/sounds/double-beep.wav"; sourceTree = SOURCE_ROOT; };
 		50379B222058CBB4000EE86E /* capacitor.config.json */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.json; path = capacitor.config.json; sourceTree = "<group>"; };
 		504EC3041FED79650016851F /* App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = App.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -44,14 +71,31 @@
 		504EC3131FED79650016851F /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		50B271D01FEDC1A000F3C39B /* public */ = {isa = PBXFileReference; lastKnownFileType = folder; path = public; sourceTree = "<group>"; };
 		52204284BF5CB5E661F0E7F3 /* soft-bell.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; name = "soft-bell.wav"; path = "App/sounds/soft-bell.wav"; sourceTree = SOURCE_ROOT; };
+		527C421686D01E2786EAB1CB /* IconSpring@3x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = "IconSpring@3x.png"; path = "App/IconSpring@3x.png"; sourceTree = SOURCE_ROOT; };
+		535A474FAA632F27239A10A9 /* IconHalloween@2x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = "IconHalloween@2x.png"; path = "App/IconHalloween@2x.png"; sourceTree = SOURCE_ROOT; };
+		589A42C2A7F36C1CAD6982AF /* IconEaster@2x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = "IconEaster@2x.png"; path = "App/IconEaster@2x.png"; sourceTree = SOURCE_ROOT; };
 		64C44DC89E3667A215018CB0 /* triad.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; name = triad.wav; path = App/sounds/triad.wav; sourceTree = SOURCE_ROOT; };
+		66A74C39B444A94D245036D9 /* IconTerra@2x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = "IconTerra@2x.png"; path = "App/IconTerra@2x.png"; sourceTree = SOURCE_ROOT; };
 		6B1448C59011E0B8B6255C1D /* alert.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; name = alert.wav; path = App/sounds/alert.wav; sourceTree = SOURCE_ROOT; };
+		7B264F758827821FB1D5D4D9 /* IconChristmas@3x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = "IconChristmas@3x.png"; path = "App/IconChristmas@3x.png"; sourceTree = SOURCE_ROOT; };
 		7C0C4A52AA8C9ADDFEEA4088 /* beep.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; name = beep.wav; path = App/sounds/beep.wav; sourceTree = SOURCE_ROOT; };
+		7F0B46E9B304C7C43F4E551A /* IconHalloween@3x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = "IconHalloween@3x.png"; path = "App/IconHalloween@3x.png"; sourceTree = SOURCE_ROOT; };
+		7FD046D691C7DE7CABDC8BC2 /* IconForest@3x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = "IconForest@3x.png"; path = "App/IconForest@3x.png"; sourceTree = SOURCE_ROOT; };
+		81D144A78066E4C40226A82F /* IconSpring@2x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = "IconSpring@2x.png"; path = "App/IconSpring@2x.png"; sourceTree = SOURCE_ROOT; };
+		8378443FB38159A5D9E277AB /* IconCream@2x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = "IconCream@2x.png"; path = "App/IconCream@2x.png"; sourceTree = SOURCE_ROOT; };
+		87034E6A862641C489E3E6D1 /* IconNewyear@2x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = "IconNewyear@2x.png"; path = "App/IconNewyear@2x.png"; sourceTree = SOURCE_ROOT; };
 		958DCC722DB07C7200EA8C5F /* debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = debug.xcconfig; path = ../debug.xcconfig; sourceTree = SOURCE_ROOT; };
+		980840F5957BB0F8286D99CD /* IconCream@3x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = "IconCream@3x.png"; path = "App/IconCream@3x.png"; sourceTree = SOURCE_ROOT; };
+		A3814E3E898E68B4B2F9C9F3 /* IconSummer@3x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = "IconSummer@3x.png"; path = "App/IconSummer@3x.png"; sourceTree = SOURCE_ROOT; };
 		BB0B4D8FBBF3CA52F4987B25 /* pluck.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; name = pluck.wav; path = App/sounds/pluck.wav; sourceTree = SOURCE_ROOT; };
+		BF1E424E900E84E0E4E92F9A /* IconChristmas@2x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = "IconChristmas@2x.png"; path = "App/IconChristmas@2x.png"; sourceTree = SOURCE_ROOT; };
+		C16440A1B61CA36F10CEB803 /* IconForest@2x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = "IconForest@2x.png"; path = "App/IconForest@2x.png"; sourceTree = SOURCE_ROOT; };
 		C5D84AE2B35FEF341014AD23 /* ding.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; name = ding.wav; path = App/sounds/ding.wav; sourceTree = SOURCE_ROOT; };
 		CED44204AEC24F707753F7D5 /* marimba.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; name = marimba.wav; path = App/sounds/marimba.wav; sourceTree = SOURCE_ROOT; };
+		D5494DF5A1C8B3B310420EB0 /* IconNewyear@3x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = "IconNewyear@3x.png"; path = "App/IconNewyear@3x.png"; sourceTree = SOURCE_ROOT; };
+		E2D74A0EBFBBEFD0C551BB6C /* IconWinter@2x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = "IconWinter@2x.png"; path = "App/IconWinter@2x.png"; sourceTree = SOURCE_ROOT; };
 		E35C4ECDA614F5608A4BCA85 /* chime.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; name = chime.wav; path = App/sounds/chime.wav; sourceTree = SOURCE_ROOT; };
+		FA4A450C9053896E9AA90AB8 /* IconSummer@2x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = "IconSummer@2x.png"; path = "App/IconSummer@2x.png"; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -84,6 +128,28 @@
 				34E94B6FAA9994E82490477A /* descending.wav */,
 				0DC2472988358518CE75D8A6 /* bloop.wav */,
 				6B1448C59011E0B8B6255C1D /* alert.wav */,
+				66A74C39B444A94D245036D9 /* IconTerra@2x.png */,
+				16DC40279989340E9E515A85 /* IconTerra@3x.png */,
+				C16440A1B61CA36F10CEB803 /* IconForest@2x.png */,
+				7FD046D691C7DE7CABDC8BC2 /* IconForest@3x.png */,
+				8378443FB38159A5D9E277AB /* IconCream@2x.png */,
+				980840F5957BB0F8286D99CD /* IconCream@3x.png */,
+				81D144A78066E4C40226A82F /* IconSpring@2x.png */,
+				FA4A450C9053896E9AA90AB8 /* IconSummer@2x.png */,
+				0AB04630AD01EAA2CA3729BC /* IconAutumn@2x.png */,
+				E2D74A0EBFBBEFD0C551BB6C /* IconWinter@2x.png */,
+				589A42C2A7F36C1CAD6982AF /* IconEaster@2x.png */,
+				535A474FAA632F27239A10A9 /* IconHalloween@2x.png */,
+				BF1E424E900E84E0E4E92F9A /* IconChristmas@2x.png */,
+				87034E6A862641C489E3E6D1 /* IconNewyear@2x.png */,
+				527C421686D01E2786EAB1CB /* IconSpring@3x.png */,
+				A3814E3E898E68B4B2F9C9F3 /* IconSummer@3x.png */,
+				19EB427BA20B44148C01819D /* IconAutumn@3x.png */,
+				440D46ACAA30C97D663C66FB /* IconWinter@3x.png */,
+				1D9C46D4B2E4A12B37D1FEFD /* IconEaster@3x.png */,
+				7F0B46E9B304C7C43F4E551A /* IconHalloween@3x.png */,
+				7B264F758827821FB1D5D4D9 /* IconChristmas@3x.png */,
+				D5494DF5A1C8B3B310420EB0 /* IconNewyear@3x.png */,
 			);
 			sourceTree = "<group>";
 		};
@@ -193,6 +259,28 @@
 				CF2B4AB08D91587421D81E18 /* descending.wav in Resources */,
 				10D5462B9204E6941A015B95 /* bloop.wav in Resources */,
 				B94C430F936BCF8D4E45CF11 /* alert.wav in Resources */,
+				B16A4757BAA10F870675D445 /* IconTerra@2x.png in Resources */,
+				333C4E1B8215290457F16CE2 /* IconTerra@3x.png in Resources */,
+				264944EA87A1855B603B9664 /* IconForest@2x.png in Resources */,
+				A47446328028090BF99F5826 /* IconForest@3x.png in Resources */,
+				1D684953B71538B1FAB107CA /* IconCream@2x.png in Resources */,
+				B23047509FB2CE04C851F7C6 /* IconCream@3x.png in Resources */,
+				D2344EB2965A59C4EE8D02A9 /* IconSpring@2x.png in Resources */,
+				43F8452BBEC95B1734D9E3CA /* IconSummer@2x.png in Resources */,
+				6A4C4986B53301B92340BBA7 /* IconAutumn@2x.png in Resources */,
+				DFCC4B8A8733B322163FDB64 /* IconWinter@2x.png in Resources */,
+				46BA4F79ADC8AB50DEB2A4BF /* IconEaster@2x.png in Resources */,
+				BBF046D3AA15E3946E392CAA /* IconHalloween@2x.png in Resources */,
+				F2744E48ACFF748A9EC083A7 /* IconChristmas@2x.png in Resources */,
+				67DE460B85DD1A3505E326FF /* IconNewyear@2x.png in Resources */,
+				22AA444ABBE94E2AC3C98CE0 /* IconSpring@3x.png in Resources */,
+				7ED34FEAA4900D6229A20CD8 /* IconSummer@3x.png in Resources */,
+				15EA4C49A62B433BA56BA1DC /* IconAutumn@3x.png in Resources */,
+				A4A44C68BD52723AFA551E31 /* IconWinter@3x.png in Resources */,
+				7BFD4FCFADF0C6AAB2419F3F /* IconEaster@3x.png in Resources */,
+				204A4FAAB76DCFE004DC4B4D /* IconHalloween@3x.png in Resources */,
+				1DFB406D8873FD53F4A470DC /* IconChristmas@3x.png in Resources */,
+				ACCB4DF5BEF4ED6122FB117E /* IconNewyear@3x.png in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
