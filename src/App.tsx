@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Plus, X, Image as ImageIcon, Trash2, AlarmClock, Bell, Clock, Settings, LogOut, User, Moon, Sun, Volume2, VolumeX, Eye, EyeOff, Zap, Play, Square, MousePointerClick, Keyboard, Type, Move, Globe, Pencil, ChevronLeft, AlertTriangle } from 'lucide-react';
+import { Plus, X, Image as ImageIcon, Trash2, AlarmClock, Bell, Clock, Settings, LogOut, User, Moon, Sun, Volume2, VolumeX, Eye, EyeOff, Zap, Play, Square, MousePointerClick, Keyboard, Type, Move, Globe, Pencil, ChevronLeft, AlertTriangle, Music, Pause } from 'lucide-react';
 import { isNative, requestReminderPermission, syncReminderNotifications } from './notifications';
 
 // detect if this window is the alert popup
@@ -22,6 +22,14 @@ interface UserSettings {
   notifSound: string;
   vibrate: boolean;
   strongAlert: boolean;
+  background: string;
+  soundPack: string;
+  autoSeasonal: boolean;
+  zenMode: boolean;
+  microAnimations: boolean;
+  appIcon: string;
+  pattern: string;
+  music: boolean;
 }
 interface SessionUser {
   username: string;
@@ -38,7 +46,164 @@ const DEFAULT_SETTINGS: UserSettings = {
   notifSound: 'chime.wav',
   vibrate: true,
   strongAlert: false,
+  background: 'default',
+  soundPack: 'all',
+  autoSeasonal: false,
+  zenMode: false,
+  microAnimations: true,
+  appIcon: 'default',
+  pattern: 'none',
+  music: false,
 };
+
+// ============ DELIGHT: backgrounds, seasons, sound packs, greeting, icons ============
+const BACKGROUNDS: Record<string, { light: string; dark: string } | null> = {
+  default: null,
+  dawn: { light: 'linear-gradient(180deg,#FDEDE2 0%,#F6D8C6 100%)', dark: 'linear-gradient(180deg,#2A211C 0%,#3A2A22 100%)' },
+  dusk: { light: 'linear-gradient(180deg,#EAE2F2 0%,#D9C9EA 100%)', dark: 'linear-gradient(180deg,#211E2A 0%,#2E2838 100%)' },
+  forest: { light: 'linear-gradient(180deg,#E8F0E4 0%,#CFE0C6 100%)', dark: 'linear-gradient(180deg,#1B241C 0%,#232E22 100%)' },
+  ocean: { light: 'linear-gradient(180deg,#E2EEF4 0%,#C6DCE8 100%)', dark: 'linear-gradient(180deg,#1A2228 0%,#222E36 100%)' },
+};
+const BACKGROUND_KEYS = ['default', 'dawn', 'dusk', 'forest', 'ocean'];
+const ZEN_BG = { light: 'linear-gradient(180deg,#E7EFEA 0%,#D2E2DA 100%)', dark: 'linear-gradient(180deg,#121917 0%,#182420 100%)' };
+
+// Custom Lull-style decorations — minimal single-colour SVG motifs (viewBox 0 0 100 100).
+const DECOR_ICONS: Record<string, string> = {
+  sun: '<circle cx="50" cy="50" r="18" fill="currentColor"/><g stroke="currentColor" stroke-width="6" stroke-linecap="round"><line x1="50" y1="8" x2="50" y2="20"/><line x1="50" y1="80" x2="50" y2="92"/><line x1="8" y1="50" x2="20" y2="50"/><line x1="80" y1="50" x2="92" y2="50"/><line x1="20" y1="20" x2="29" y2="29"/><line x1="71" y1="71" x2="80" y2="80"/><line x1="80" y1="20" x2="71" y2="29"/><line x1="29" y1="71" x2="20" y2="80"/></g>',
+  umbrella: '<path d="M16 50 A34 34 0 0 1 84 50 Q67 42 50 50 Q33 42 16 50 Z" fill="currentColor"/><rect x="47" y="50" width="6" height="30" rx="3" fill="currentColor"/><path d="M53 80 q10 0 10 -9" fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round"/>',
+  wave: '<path d="M8 46 q11 -15 22 0 t22 0 t22 0 t22 0" fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="round"/><path d="M8 66 q11 -15 22 0 t22 0 t22 0 t22 0" fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="round"/>',
+  palm: '<path d="M50 88 Q45 58 54 34" fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="round"/><g fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="round"><path d="M52 32 Q30 24 16 32"/><path d="M52 32 Q74 24 86 34"/><path d="M52 32 Q40 16 24 14"/><path d="M52 32 Q66 16 82 16"/></g>',
+  icecream: '<circle cx="42" cy="32" r="15" fill="currentColor"/><circle cx="60" cy="30" r="13" fill="currentColor"/><path d="M28 44 L72 44 L50 92 Z" fill="currentColor"/>',
+  flower: '<g fill="currentColor"><circle cx="50" cy="26" r="13"/><circle cx="74" cy="44" r="13"/><circle cx="65" cy="72" r="13"/><circle cx="35" cy="72" r="13"/><circle cx="26" cy="44" r="13"/></g>',
+  leaf: '<path d="M50 12 C78 30 78 68 50 90 C22 68 22 30 50 12 Z" fill="currentColor"/>',
+  butterfly: '<g fill="currentColor"><ellipse cx="33" cy="38" rx="17" ry="21"/><ellipse cx="67" cy="38" rx="17" ry="21"/><ellipse cx="36" cy="67" rx="13" ry="15"/><ellipse cx="64" cy="67" rx="13" ry="15"/><rect x="47" y="28" width="6" height="46" rx="3"/></g>',
+  sprout: '<g fill="currentColor"><rect x="47" y="44" width="6" height="44" rx="3"/><ellipse cx="32" cy="40" rx="15" ry="9" transform="rotate(-28 32 40)"/><ellipse cx="68" cy="40" rx="15" ry="9" transform="rotate(28 68 40)"/></g>',
+  acorn: '<g fill="currentColor"><path d="M28 40 Q50 24 72 40 Q50 48 28 40 Z"/><path d="M32 43 Q50 46 68 43 L61 68 Q50 80 39 68 Z"/></g>',
+  mushroom: '<g fill="currentColor"><path d="M20 52 Q50 20 80 52 Q50 60 20 52 Z"/><rect x="42" y="52" width="16" height="32" rx="7"/></g>',
+  snowflake: '<g stroke="currentColor" stroke-width="5" stroke-linecap="round"><line x1="50" y1="10" x2="50" y2="90"/><line x1="15" y1="30" x2="85" y2="70"/><line x1="85" y1="30" x2="15" y2="70"/><path d="M50 24 l-9 -9 M50 24 l9 -9 M50 76 l-9 9 M50 76 l9 9"/></g>',
+  snowman: '<g fill="currentColor"><circle cx="50" cy="66" r="20"/><circle cx="50" cy="36" r="13"/><rect x="38" y="15" width="24" height="7" rx="2"/><rect x="43" y="6" width="14" height="11" rx="2"/></g>',
+  moon: '<path d="M64 18 A34 34 0 1 0 64 82 A27 27 0 1 1 64 18 Z" fill="currentColor"/>',
+  egg: '<path d="M50 12 C69 12 79 44 79 60 A29 29 0 0 1 21 60 C21 44 31 12 50 12 Z" fill="currentColor"/>',
+  bunny: '<g fill="currentColor"><ellipse cx="38" cy="24" rx="8" ry="22"/><ellipse cx="62" cy="24" rx="8" ry="22"/><circle cx="50" cy="62" r="23"/></g>',
+  tree: '<g fill="currentColor"><polygon points="50,12 68,40 32,40"/><polygon points="50,30 76,64 24,64"/><rect x="44" y="64" width="12" height="16" rx="2"/></g>',
+  gift: '<g fill="currentColor"><rect x="24" y="42" width="52" height="42" rx="4"/><rect x="20" y="32" width="60" height="13" rx="3"/><rect x="45" y="32" width="10" height="52"/></g>',
+  star: '<path d="M50 8 L61 38 L92 38 L67 57 L76 90 L50 70 L24 90 L33 57 L8 38 L39 38 Z" fill="currentColor"/>',
+  ornament: '<g fill="currentColor"><circle cx="50" cy="58" r="26"/><rect x="44" y="24" width="12" height="10" rx="2"/><rect x="46" y="16" width="8" height="9" rx="2"/></g>',
+  pumpkin: '<g fill="currentColor"><ellipse cx="50" cy="58" rx="30" ry="25"/><ellipse cx="33" cy="58" rx="16" ry="25"/><ellipse cx="67" cy="58" rx="16" ry="25"/><rect x="46" y="24" width="8" height="15" rx="3"/></g>',
+  ghost: '<path d="M26 56 A24 24 0 0 1 74 56 L74 86 L65 78 L57 86 L50 78 L43 86 L35 78 L26 86 Z" fill="currentColor"/>',
+  bat: '<g fill="currentColor"><ellipse cx="50" cy="52" rx="8" ry="12"/><path d="M50 46 L16 34 Q26 52 12 60 Q36 55 43 64 Z"/><path d="M50 46 L84 34 Q74 52 88 60 Q64 55 57 64 Z"/></g>',
+  firework: '<g stroke="currentColor" stroke-width="5" stroke-linecap="round"><line x1="50" y1="50" x2="50" y2="16"/><line x1="50" y1="50" x2="84" y2="50"/><line x1="50" y1="50" x2="50" y2="84"/><line x1="50" y1="50" x2="16" y2="50"/><line x1="50" y1="50" x2="74" y2="26"/><line x1="50" y1="50" x2="26" y2="74"/><line x1="50" y1="50" x2="74" y2="74"/><line x1="50" y1="50" x2="26" y2="26"/></g>',
+  champagne: '<g fill="currentColor"><path d="M38 18 L62 18 L57 48 Q50 55 43 48 Z"/><rect x="47" y="52" width="6" height="24" rx="2"/><rect x="36" y="78" width="28" height="6" rx="3"/></g>',
+  sparkle: '<path d="M50 10 C53 40 60 47 90 50 C60 53 53 60 50 90 C47 60 40 53 10 50 C40 47 47 40 50 10 Z" fill="currentColor"/>',
+};
+
+// motif set per decoration theme (season or holiday)
+const DECOR_SETS: Record<string, string[]> = {
+  spring: ['flower', 'leaf', 'butterfly', 'sprout', 'flower'],
+  summer: ['sun', 'umbrella', 'wave', 'palm', 'icecream'],
+  autumn: ['leaf', 'acorn', 'mushroom', 'leaf', 'sprout'],
+  winter: ['snowflake', 'snowman', 'moon', 'snowflake', 'star'],
+  easter: ['egg', 'bunny', 'flower', 'egg', 'sprout'],
+  christmas: ['tree', 'gift', 'star', 'snowflake', 'ornament'],
+  halloween: ['pumpkin', 'ghost', 'bat', 'moon', 'pumpkin'],
+  newyear: ['firework', 'star', 'champagne', 'sparkle', 'firework'],
+};
+
+// pick a holiday theme when in its window, otherwise the season
+function decorThemeOf(d: Date): string {
+  const m = d.getMonth(), day = d.getDate();
+  if ((m === 11 && day >= 31) || (m === 0 && day <= 2)) return 'newyear';
+  if (m === 11 && day >= 13) return 'christmas';
+  if (m === 9 && day >= 18) return 'halloween';
+  if ((m === 2 && day >= 22) || (m === 3 && day <= 21)) return 'easter';
+  return seasonOf(d).label.toLowerCase();
+}
+
+const DECOR_SLOTS: { pos: React.CSSProperties; size: number; delay: string }[] = [
+  { pos: { top: '5%', left: '3%' }, size: 90, delay: '0s' },
+  { pos: { top: '11%', right: '4%' }, size: 108, delay: '0.8s' },
+  { pos: { top: '40%', left: '1%' }, size: 74, delay: '1.5s' },
+  { pos: { top: '52%', right: '2%' }, size: 98, delay: '0.4s' },
+  { pos: { bottom: '15%', left: '5%' }, size: 84, delay: '1.1s' },
+  { pos: { bottom: '5%', right: '7%' }, size: 78, delay: '1.9s' },
+  { pos: { top: '73%', left: '42%' }, size: 64, delay: '0.6s' },
+  { pos: { top: '26%', left: '45%' }, size: 60, delay: '1.3s' },
+];
+
+function DecorIcon({ motif, size, delay }: { motif: string; size: number; delay: string }) {
+  const inner = DECOR_ICONS[motif];
+  if (!inner) return null;
+  return (
+    <svg
+      viewBox="0 0 100 100"
+      width={size}
+      height={size}
+      className="lull-float text-terra"
+      style={{ animationDelay: delay, opacity: 0.18 }}
+      dangerouslySetInnerHTML={{ __html: inner }}
+    />
+  );
+}
+
+function patternStyle(settings: UserSettings): React.CSSProperties {
+  const c = settings.theme === 'dark' ? 'rgba(245,239,230,0.14)' : 'rgba(31,36,33,0.12)';
+  switch (settings.pattern) {
+    case 'dots': return { backgroundImage: `radial-gradient(${c} 2.6px, transparent 2.6px)`, backgroundSize: '20px 20px' };
+    case 'grid': return { backgroundImage: `linear-gradient(${c} 1.6px, transparent 1.6px), linear-gradient(90deg, ${c} 1.6px, transparent 1.6px)`, backgroundSize: '24px 24px' };
+    case 'diagonal': return { backgroundImage: `repeating-linear-gradient(45deg, ${c} 0, ${c} 2.2px, transparent 2.2px, transparent 12px)` };
+    case 'cross': return { backgroundImage: `radial-gradient(${c} 2.4px, transparent 2.4px), radial-gradient(${c} 2.4px, transparent 2.4px)`, backgroundSize: '26px 26px', backgroundPosition: '0 0, 13px 13px' };
+    default: return {};
+  }
+}
+
+function seasonOf(d: Date): { label: string; bg: string } {
+  const m = d.getMonth();
+  if (m >= 2 && m <= 4) return { label: 'Spring', bg: 'forest' };
+  if (m >= 5 && m <= 7) return { label: 'Summer', bg: 'ocean' };
+  if (m >= 8 && m <= 10) return { label: 'Autumn', bg: 'dawn' };
+  return { label: 'Winter', bg: 'dusk' };
+}
+
+function resolveBackground(settings: UserSettings, now: number): string {
+  const theme = settings.theme === 'dark' ? 'dark' : 'light';
+  if (settings.zenMode) return ZEN_BG[theme];
+  let key = settings.background || 'default';
+  if (settings.autoSeasonal) key = seasonOf(new Date(now)).bg;
+  const bg = BACKGROUNDS[key];
+  if (!bg) return 'linear-gradient(180deg, var(--page-top) 0%, var(--page-bottom) 100%)';
+  return bg[theme];
+}
+
+function greetingText(settings: UserSettings, now: number): string {
+  const h = new Date(now).getHours();
+  const part = h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening';
+  return settings.displayName ? `${part}, ${settings.displayName}` : part;
+}
+
+const SOUND_PACKS: Record<string, { label: string; files: string[] }> = {
+  all: { label: 'All', files: ['chime.wav', 'ding.wav', 'soft-bell.wav', 'beep.wav', 'double-beep.wav', 'marimba.wav', 'pluck.wav', 'triad.wav', 'rising.wav', 'descending.wav', 'bloop.wav', 'alert.wav'] },
+  soft: { label: 'Soft', files: ['soft-bell.wav', 'chime.wav', 'marimba.wav', 'triad.wav'] },
+  retro: { label: 'Retro', files: ['beep.wav', 'double-beep.wav', 'alert.wav', 'bloop.wav'] },
+  nature: { label: 'Nature', files: ['rising.wav', 'descending.wav', 'pluck.wav', 'ding.wav'] },
+};
+const SOUND_PACK_KEYS = ['all', 'soft', 'retro', 'nature'];
+
+const APP_ICONS = [
+  { key: 'default', label: 'Ink', preview: 'icons/icon-default.png' },
+  { key: 'terra', label: 'Terra', preview: 'icons/icon-terra.png' },
+  { key: 'forest', label: 'Forest', preview: 'icons/icon-forest.png' },
+  { key: 'cream', label: 'Cream', preview: 'icons/icon-cream.png' },
+];
+
+async function applyAppIcon(key: string) {
+  if (!isNative) return;
+  try {
+    // Uses a native alternate-icon plugin if present; no-ops (build-safe) until one is wired.
+    const plugins = (window as any)?.Capacitor?.Plugins;
+    const p = plugins?.DynamicIcon || plugins?.AlternateIcon;
+    if (p?.setIcon) await p.setIcon({ name: key === 'default' ? null : key });
+  } catch { /* no-op */ }
+}
 
 // iOS notification sound presets (bundled .wav files; also in public/sounds for preview)
 const NOTIF_SOUNDS: { file: string; label: string }[] = [
@@ -290,6 +455,7 @@ export default function App() {
   const [repeat, setRepeat] = useState('none');
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const musicRef = useRef<HTMLAudioElement>(null);
 
   // ============ EFFECTS ============
 
@@ -392,6 +558,23 @@ export default function App() {
     if (isAlertWindow || !user) return;
     api.setPanic(settings.panicHotkey || '');
   }, [settings.panicHotkey, user]);
+
+  // ambient music: play the mode-appropriate track (zen / season / default) when enabled
+  const musicTrack = settings.zenMode ? 'zen' : settings.autoSeasonal ? seasonOf(new Date()).label.toLowerCase() : 'default';
+  useEffect(() => {
+    if (isAlertWindow) return;
+    const a = musicRef.current;
+    if (!a) return;
+    if (settings.music) {
+      const src = `music/${musicTrack}.wav`;
+      if (!a.src.endsWith(src)) a.src = src;
+      a.volume = 0.5;
+      a.loop = true;
+      a.play().catch(() => { /* needs a user gesture; the music button handles that */ });
+    } else {
+      a.pause();
+    }
+  }, [settings.music, musicTrack]);
 
   // ask for notification permission once
   useEffect(() => {
@@ -595,6 +778,8 @@ export default function App() {
   const upcoming = reminders.filter(r => !r.dismissed).sort((a, b) => a.triggerAt - b.triggerAt);
   const ukNow = fmtTime(now);
   const themeClass = `theme-${settings.theme}`;
+  const packFiles = (SOUND_PACKS[settings.soundPack] || SOUND_PACKS.all).files;
+  const visibleSounds = NOTIF_SOUNDS.filter(s => packFiles.includes(s.file));
 
   // ============ SHARED STYLES ============
   const styleBlock = (
@@ -676,14 +861,45 @@ export default function App() {
         filter: invert(1); opacity: 0.6;
       }
 
+      /* ===== Zen mode: calm sage accents, flat soft surfaces, gentle motion ===== */
+      .zen { --terra: #8FA79A; --terra-dark: #748E80; --terra-light: #E1EBE5; --ink-muted: #869089; }
+      .zen article, .zen .shadow-lg, .zen .shadow-sm, .zen .bg-card { box-shadow: none !important; }
+      .zen .animate-fade-up, .zen .animate-slide-down { animation-duration: 1.3s !important; }
+      .zen .animate-pulse-glow { animation: none !important; }
+      .zen .border-cream-dark { border-color: rgba(140,150,140,0.18) !important; }
+      .zen h1, .zen h2 { font-weight: 300 !important; }
+
+      /* ===== Seasonal accent colours (stronger seasonal identity) ===== */
+      .season-spring { --terra: #6FA36B; --terra-dark: #54894F; --terra-light: #E4F0DF; }
+      .season-summer { --terra: #E0925A; --terra-dark: #C87840; --terra-light: #F6E6D2; }
+      .season-autumn { --terra: #C8663D; --terra-dark: #A34E2C; --terra-light: #F3DDCE; }
+      .season-winter { --terra: #5B84B0; --terra-dark: #456A93; --terra-light: #DDE6F0; }
+
+      /* ===== Micro-animations: satisfying tap + pop feedback ===== */
+      .micro-anim button { transition: transform 0.09s ease, background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease; }
+      .micro-anim button:active { transform: scale(0.94); }
+      @keyframes lull-pop { 0% { transform: scale(1); } 40% { transform: scale(1.06); } 100% { transform: scale(1); } }
+      .micro-anim .lull-pop { animation: lull-pop 0.35s ease; }
+
+      /* ===== Seasonal floating decorations ===== */
+      @keyframes lull-float { 0%, 100% { transform: translateY(0) rotate(-4deg); } 50% { transform: translateY(-14px) rotate(4deg); } }
+      .lull-float { animation: lull-float 6s ease-in-out infinite; will-change: transform; }
+
       /* ===== Mobile layout only (desktop >600px untouched) ===== */
       @media (max-width: 600px) {
-        .lull-page { padding: 26px 18px !important; }
+        /* honour iOS safe areas: keep content clear of the status bar, battery,
+           Dynamic Island (top) and the home indicator (bottom) */
+        .lull-page {
+          padding-top: calc(24px + env(safe-area-inset-top)) !important;
+          padding-bottom: calc(24px + env(safe-area-inset-bottom)) !important;
+          padding-left: calc(18px + env(safe-area-inset-left)) !important;
+          padding-right: calc(18px + env(safe-area-inset-right)) !important;
+        }
         .lull-header { flex-direction: column !important; gap: 16px; margin-bottom: 32px !important; }
         .lull-header-right { width: 100%; justify-content: space-between; }
         .lull-actions { flex-direction: column !important; align-items: stretch !important; margin-bottom: 32px !important; }
         .lull-actions > button { width: 100%; justify-content: center; padding: 16px 20px !important; }
-        .lull-modal-overlay { padding: 12px !important; }
+        .lull-modal-overlay { padding: calc(12px + env(safe-area-inset-top)) 12px calc(12px + env(safe-area-inset-bottom)) 12px !important; }
         .lull-modal { padding: 22px !important; border-radius: 24px; max-height: 94vh; }
         .lull-form-2col { grid-template-columns: 1fr !important; }
         .lull-iconbtn { padding: 11px !important; }
@@ -763,21 +979,57 @@ export default function App() {
   return (
     <>
       {styleBlock}
-      <div className={`${themeClass} min-h-screen font-body text-ink relative`} style={{ background: `linear-gradient(180deg, var(--page-top) 0%, var(--page-bottom) 100%)` }}>
+      <div className={`${themeClass} min-h-screen font-body text-ink relative ${settings.zenMode ? 'zen' : (settings.autoSeasonal ? `season-${seasonOf(new Date(now)).label.toLowerCase()}` : '')} ${settings.microAnimations !== false ? 'micro-anim' : ''}`} style={{ background: resolveBackground(settings, now) }}>
         <div className="absolute top-0 right-0 w-96 h-96 rounded-full pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(200,85,61,0.12), transparent 70%)' }}/>
+
+        {settings.pattern && settings.pattern !== 'none' && (
+          <div className="pointer-events-none fixed inset-0" style={{ zIndex: 0, ...patternStyle(settings) }} aria-hidden="true"/>
+        )}
+
+        {settings.autoSeasonal && !settings.zenMode && (() => {
+          const set = DECOR_SETS[decorThemeOf(new Date(now))] || [];
+          return set.length ? (
+            <div className="pointer-events-none fixed inset-0 overflow-hidden" style={{ zIndex: 0 }} aria-hidden="true">
+              {DECOR_SLOTS.map((slot, i) => (
+                <span key={i} style={{ position: 'absolute', ...slot.pos }}>
+                  <DecorIcon motif={set[i % set.length]} size={slot.size} delay={slot.delay} />
+                </span>
+              ))}
+            </div>
+          ) : null;
+        })()}
+
+        <audio ref={musicRef} loop preload="none" />
+        <button
+          onClick={() => {
+            const on = !settings.music;
+            setSettings(s => ({ ...s, music: on }));
+            const a = musicRef.current;
+            if (a) {
+              if (on) { a.src = `music/${musicTrack}.wav`; a.volume = 0.5; a.loop = true; a.play().catch(() => {}); }
+              else { a.pause(); }
+            }
+          }}
+          className="fixed bottom-5 right-5 z-30 w-12 h-12 rounded-full bg-card border border-cream-dark shadow-lg flex items-center justify-center text-ink-muted hover:text-terra transition-colors"
+          style={{ marginBottom: 'env(safe-area-inset-bottom)', marginRight: 'env(safe-area-inset-right)' }}
+          aria-label="Toggle ambient music"
+          title="Ambient music"
+        >
+          {settings.music ? <Pause size={18} strokeWidth={2}/> : <Music size={18} strokeWidth={2}/>}
+        </button>
 
         <div className="max-w-6xl mx-auto px-6 sm:px-10 py-10 sm:py-14 relative lull-page">
           <header className="flex items-start justify-between mb-12 sm:mb-16 animate-fade-up lull-header">
             <div>
               <p className="text-xs uppercase tracking-[0.25em] text-ink-muted mb-2">
-                {settings.displayName ? `Hello, ${settings.displayName}` : 'A reminder app'}
+                {greetingText(settings, now)}
               </p>
               <h1 className="font-display text-5xl sm:text-7xl font-light text-ink leading-none">
                 Lull<span className="text-terra italic font-normal">.</span>
               </h1>
             </div>
             <div className="flex items-center gap-3 lull-header-right">
-              <div className="bg-card/70 backdrop-blur rounded-full px-5 py-3 border border-cream-dark flex items-center gap-3 shadow-sm">
+              <div className="bg-card rounded-full px-5 py-3 border border-cream-dark flex items-center gap-3 shadow-sm">
                 <Clock size={16} className="text-terra" strokeWidth={1.8}/>
                 <div className="text-right">
                   <div className="font-display text-lg leading-none font-medium">{ukNow}</div>
@@ -786,7 +1038,7 @@ export default function App() {
               </div>
               <button
                 onClick={() => setShowSettings(true)}
-                className="bg-card/70 backdrop-blur rounded-full w-12 h-12 border border-cream-dark flex items-center justify-center shadow-sm text-ink-muted hover:text-terra hover:border-terra transition-colors"
+                className="bg-card rounded-full w-12 h-12 border border-cream-dark flex items-center justify-center shadow-sm text-ink-muted hover:text-terra hover:border-terra transition-colors"
                 aria-label="Account settings"
                 title="Account & settings"
               >
@@ -825,7 +1077,7 @@ export default function App() {
           </div>
 
           {upcoming.length === 0 ? (
-            <div className="bg-card/50 border-2 border-dashed border-cream-dark rounded-3xl py-20 px-6 text-center animate-fade-up" style={{ animationDelay: '0.3s' }}>
+            <div className="bg-card border-2 border-dashed border-cream-dark rounded-3xl py-20 px-6 text-center animate-fade-up" style={{ animationDelay: '0.3s' }}>
               <Bell size={32} className="text-terra mx-auto mb-4" strokeWidth={1.4}/>
               <p className="font-display text-2xl italic text-ink-muted">Nothing on your mind yet</p>
               <p className="text-sm text-ink-muted mt-2">Tap "new reminder" to add one</p>
@@ -838,7 +1090,7 @@ export default function App() {
                   className="bg-card rounded-3xl p-6 border border-cream-dark hover:shadow-xl transition-all duration-500 animate-fade-up flex flex-col"
                   style={{ animationDelay: `${0.3 + Math.min(i, 6) * 0.05}s`, boxShadow: '0 4px 20px -8px rgba(31, 36, 33, 0.1)' }}
                 >
-                  {r.imageUrl && (
+                  {!isNative && r.imageUrl && (
                     <div className="rounded-2xl overflow-hidden mb-5 aspect-[4/3] bg-cream-dark">
                       <img src={r.imageUrl} alt="" className="w-full h-full object-cover"/>
                     </div>
@@ -1026,6 +1278,7 @@ export default function App() {
                   </div>
                 </div>
 
+                {!isNative && (
                 <div>
                   <label className="text-xs uppercase tracking-wider text-ink-muted block mb-2">Image (optional)</label>
                   {imageUrl ? (
@@ -1051,6 +1304,7 @@ export default function App() {
                     </>
                   )}
                 </div>
+                )}
               </div>
 
               <div className="flex gap-3 mt-8">
@@ -1146,13 +1400,77 @@ export default function App() {
                   </button>
                 </div>
 
+                {/* Background gradients */}
+                <div>
+                  <label className="text-xs uppercase tracking-wider text-ink-muted block mb-2">Background</label>
+                  <div className="grid grid-cols-5 gap-2">
+                    {BACKGROUND_KEYS.map(k => {
+                      const bg = BACKGROUNDS[k];
+                      const g = bg ? bg[settings.theme === 'dark' ? 'dark' : 'light'] : 'linear-gradient(180deg, var(--page-top), var(--page-bottom))';
+                      const active = !settings.zenMode && !settings.autoSeasonal && (settings.background || 'default') === k;
+                      return (
+                        <button
+                          key={k}
+                          type="button"
+                          onClick={() => setSettings(s => ({ ...s, background: k, autoSeasonal: false, zenMode: false }))}
+                          className={`h-12 rounded-2xl border-2 transition-all ${active ? 'border-terra' : 'border-cream-dark'}`}
+                          style={{ background: g }}
+                          aria-label={k}
+                        />
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-xs uppercase tracking-wider text-ink-muted block mb-2">Pattern</label>
+                  <Segmented
+                    value={settings.pattern || 'none'}
+                    onChange={v => setSettings(s => ({ ...s, pattern: v }))}
+                    options={[{ value: 'none', label: 'None' }, { value: 'dots', label: 'Dots' }, { value: 'grid', label: 'Grid' }, { value: 'diagonal', label: 'Lines' }, { value: 'cross', label: 'Cross' }]}
+                  />
+                </div>
+
+                <div className="flex"><ToggleRow label={`Seasonal theme (${seasonOf(new Date()).label})`} value={!!settings.autoSeasonal} onChange={v => setSettings(s => ({ ...s, autoSeasonal: v, zenMode: v ? false : s.zenMode }))} /></div>
+                <div className="flex"><ToggleRow label="Zen mode (calm & minimal)" value={!!settings.zenMode} onChange={v => setSettings(s => ({ ...s, zenMode: v }))} /></div>
+                <div className="flex"><ToggleRow label="Micro-animations" value={settings.microAnimations !== false} onChange={v => setSettings(s => ({ ...s, microAnimations: v }))} /></div>
+                <div className="flex"><ToggleRow label="Ambient music (relaxing)" value={!!settings.music} onChange={v => setSettings(s => ({ ...s, music: v }))} /></div>
+
+                {/* App icon (iOS) */}
+                {isNative && (
+                  <div>
+                    <label className="text-xs uppercase tracking-wider text-ink-muted block mb-2">App icon</label>
+                    <div className="grid grid-cols-4 gap-3">
+                      {APP_ICONS.map(ic => (
+                        <button
+                          key={ic.key}
+                          type="button"
+                          onClick={() => { setSettings(s => ({ ...s, appIcon: ic.key })); applyAppIcon(ic.key); }}
+                          className={`rounded-2xl border-2 p-1.5 transition-all ${settings.appIcon === ic.key ? 'border-terra' : 'border-cream-dark'}`}
+                        >
+                          <img src={ic.preview} alt={ic.label} className="w-full aspect-square rounded-xl bg-cream-dark object-cover"/>
+                          <div className="text-[10px] text-center text-ink-muted mt-1">{ic.label}</div>
+                        </button>
+                      ))}
+                    </div>
+                    <p className="text-xs text-ink-muted mt-2">Home-screen icon changes apply on a device build once the alternate-icon plugin is added.</p>
+                  </div>
+                )}
+
                 {/* Notification sound + vibration (iOS only) */}
                 {isNative && (
                   <div className="space-y-4">
                     <div>
                       <label className="text-xs uppercase tracking-wider text-ink-muted block mb-2">Notification sound</label>
+                      <div className="mb-3">
+                        <Segmented
+                          value={settings.soundPack}
+                          onChange={v => setSettings(st => { const files = (SOUND_PACKS[v] || SOUND_PACKS.all).files; return { ...st, soundPack: v, notifSound: files.includes(st.notifSound) ? st.notifSound : files[0] }; })}
+                          options={SOUND_PACK_KEYS.map(k => ({ value: k, label: SOUND_PACKS[k].label }))}
+                        />
+                      </div>
                       <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
-                        {NOTIF_SOUNDS.map(s => (
+                        {visibleSounds.map(s => (
                           <div
                             key={s.file}
                             className={`flex items-center gap-3 rounded-2xl border-2 px-3 py-2.5 transition-colors ${settings.notifSound === s.file ? 'border-terra bg-terra-light' : 'border-cream-dark'}`}

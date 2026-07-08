@@ -29,6 +29,14 @@ export interface UserSettings {
   notifSound: string
   vibrate: boolean
   strongAlert: boolean
+  background: string
+  soundPack: string
+  autoSeasonal: boolean
+  zenMode: boolean
+  microAnimations: boolean
+  appIcon: string
+  pattern: string
+  music: boolean
 }
 
 interface StoreFile {
@@ -45,6 +53,14 @@ const DEFAULT_SETTINGS: UserSettings = {
   notifSound: 'chime.wav',
   vibrate: true,
   strongAlert: false,
+  background: 'default',
+  soundPack: 'all',
+  autoSeasonal: false,
+  zenMode: false,
+  microAnimations: true,
+  appIcon: 'default',
+  pattern: 'none',
+  music: false,
 }
 
 function storePath(): string {

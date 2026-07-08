@@ -1,4 +1,4 @@
-import { app as m, globalShortcut as I, ipcMain as l, BrowserWindow as L, screen as oe, nativeImage as K, Tray as se, Menu as ae } from "electron";
+import { app as m, globalShortcut as I, ipcMain as l, BrowserWindow as L, screen as re, nativeImage as K, Tray as se, Menu as ae } from "electron";
 import { createRequire as J } from "node:module";
 import { fileURLToPath as ie } from "node:url";
 import f from "node:path";
@@ -8,7 +8,18 @@ const C = {
   displayName: "",
   theme: "light",
   soundEnabled: !0,
-  panicHotkey: ""
+  panicHotkey: "",
+  notifSound: "chime.wav",
+  vibrate: !0,
+  strongAlert: !1,
+  background: "default",
+  soundPack: "all",
+  autoSeasonal: !1,
+  zenMode: !1,
+  microAnimations: !0,
+  appIcon: "default",
+  pattern: "none",
+  music: !1
 };
 function H() {
   return f.join(m.getPath("userData"), "lull-data.json");
@@ -35,8 +46,8 @@ function W(e, t) {
   return Q(e, t, 64).toString("hex");
 }
 function X(e, t, n) {
-  const r = Q(e, t, 64), o = Buffer.from(n, "hex");
-  return r.length !== o.length ? !1 : ce(r, o);
+  const o = Q(e, t, 64), r = Buffer.from(n, "hex");
+  return o.length !== r.length ? !1 : ce(o, r);
 }
 function U(e) {
   return {
@@ -51,23 +62,23 @@ function ue(e, t) {
   const n = (e || "").trim();
   if (n.length < 2) return { ok: !1, error: "Username must be at least 2 characters." };
   if ((t || "").length < 4) return { ok: !1, error: "Password must be at least 4 characters." };
-  const r = S();
-  if (r.accounts[k(n)])
+  const o = S();
+  if (o.accounts[k(n)])
     return { ok: !1, error: "That username is already taken." };
-  const o = G(16).toString("hex"), s = {
+  const r = G(16).toString("hex"), s = {
     username: n,
-    salt: o,
-    hash: W(t, o),
+    salt: r,
+    hash: W(t, r),
     createdAt: Date.now(),
     reminders: [],
     tasks: [],
     settings: { ...C, displayName: n }
   };
-  return r.accounts[k(n)] = s, r.session = k(n), E(r), { ok: !0, user: U(s) };
+  return o.accounts[k(n)] = s, o.session = k(n), E(o), { ok: !0, user: U(s) };
 }
 function fe(e, t) {
-  const n = S(), r = n.accounts[k(e || "")];
-  return r ? X(t || "", r.salt, r.hash) ? (n.session = k(r.username), E(n), { ok: !0, user: U(r) }) : { ok: !1, error: "Incorrect password." } : { ok: !1, error: "No account with that username." };
+  const n = S(), o = n.accounts[k(e || "")];
+  return o ? X(t || "", o.salt, o.hash) ? (n.session = k(o.username), E(n), { ok: !0, user: U(o) }) : { ok: !1, error: "Incorrect password." } : { ok: !1, error: "No account with that username." };
 }
 function pe() {
   const e = S();
@@ -80,17 +91,17 @@ function de() {
   return t ? { ok: !0, user: U(t) } : { ok: !0, user: null };
 }
 function he(e, t) {
-  const n = S(), r = n.accounts[k(e || "")];
-  return r ? (Array.isArray(t.reminders) && (r.reminders = t.reminders), Array.isArray(t.tasks) && (r.tasks = t.tasks), t.settings && (r.settings = { ...C, ...r.settings, ...t.settings }), E(n), { ok: !0 }) : { ok: !1, error: "Account not found." };
+  const n = S(), o = n.accounts[k(e || "")];
+  return o ? (Array.isArray(t.reminders) && (o.reminders = t.reminders), Array.isArray(t.tasks) && (o.tasks = t.tasks), t.settings && (o.settings = { ...C, ...o.settings, ...t.settings }), E(n), { ok: !0 }) : { ok: !1, error: "Account not found." };
 }
 function we(e, t, n) {
-  const r = S(), o = r.accounts[k(e || "")];
-  if (!o) return { ok: !1, error: "Account not found." };
-  if (!X(t || "", o.salt, o.hash))
+  const o = S(), r = o.accounts[k(e || "")];
+  if (!r) return { ok: !1, error: "Account not found." };
+  if (!X(t || "", r.salt, r.hash))
     return { ok: !1, error: "Current password is incorrect." };
   if ((n || "").length < 4) return { ok: !1, error: "New password must be at least 4 characters." };
   const s = G(16).toString("hex");
-  return o.salt = s, o.hash = W(n, s), E(r), { ok: !0 };
+  return r.salt = s, r.hash = W(n, s), E(o), { ok: !0 };
 }
 const Y = J(import.meta.url), d = /* @__PURE__ */ new Map();
 let j = /* @__PURE__ */ new Map(), Z = [], D = "", p = null, M = null;
@@ -130,45 +141,45 @@ function ke() {
 const h = (e, t, n) => Math.max(t, Math.min(n, Number(e) || t));
 function y(e, t) {
   return new Promise((n) => {
-    let o = 0;
+    let r = 0;
     const s = setInterval(() => {
-      o += 40, (t.stopped || o >= e) && (clearInterval(s), n());
+      r += 40, (t.stopped || r >= e) && (clearInterval(s), n());
     }, 40);
   });
 }
 function be() {
   const e = "abcdefghijklmnopqrstuvwxyz0123456789", t = 5 + Math.floor(Math.random() * 8);
   let n = "";
-  for (let r = 0; r < t; r++) n += e[Math.floor(Math.random() * e.length)];
+  for (let o = 0; o < t; o++) n += e[Math.floor(Math.random() * e.length)];
   return n;
 }
 async function Se(e, t) {
   const n = _();
   if (!n) throw new Error("Input automation not installed. Run: npm install");
-  const { mouse: r, Button: o } = n;
-  r.config.autoDelayMs = 0, r.config.mouseSpeed = 1e5;
-  const s = e.config.button === "right" ? o.RIGHT : e.config.button === "middle" ? o.MIDDLE : o.LEFT;
+  const { mouse: o, Button: r } = n;
+  o.config.autoDelayMs = 0, o.config.mouseSpeed = 1e5;
+  const s = e.config.button === "right" ? r.RIGHT : e.config.button === "middle" ? r.MIDDLE : r.LEFT;
   if (e.config.mode === "hold") {
     const w = h(e.config.holdSeconds, 0.05, 3600) * 1e3, i = h(e.config.releaseSeconds, 0.05, 3600) * 1e3;
     for (t.cleanup = async () => {
       try {
-        await r.releaseButton(s);
+        await o.releaseButton(s);
       } catch {
       }
-    }; !t.stopped && (await r.pressButton(s), await y(w, t), await r.releaseButton(s), t.count++, !t.stopped); )
+    }; !t.stopped && (await o.pressButton(s), await y(w, t), await o.releaseButton(s), t.count++, !t.stopped); )
       await y(i, t);
     try {
-      await r.releaseButton(s);
+      await o.releaseButton(s);
     } catch {
     }
   } else {
     const i = 1e3 / h(e.config.cps, 1, 200);
     for (; !t.stopped; )
-      await r.click(s), t.count++, i > 1 && await y(i, t);
+      await o.click(s), t.count++, i > 1 && await y(i, t);
   }
 }
 function Pe(e, t) {
-  const { Key: n } = e, r = (t || "Space").trim(), o = {
+  const { Key: n } = e, o = (t || "Space").trim(), r = {
     space: n.Space,
     enter: n.Enter,
     return: n.Enter,
@@ -185,40 +196,40 @@ function Pe(e, t) {
     escape: n.Escape,
     backspace: n.Backspace,
     delete: n.Delete
-  }, s = r.toLowerCase();
-  return o[s] ? o[s] : /^f([1-9]|1[0-9]|2[0-4])$/i.test(r) ? n["F" + r.slice(1)] : /^[a-z]$/i.test(r) ? n[r.toUpperCase()] : /^[0-9]$/.test(r) ? n["Num" + r] : n.Space;
+  }, s = o.toLowerCase();
+  return r[s] ? r[s] : /^f([1-9]|1[0-9]|2[0-4])$/i.test(o) ? n["F" + o.slice(1)] : /^[a-z]$/i.test(o) ? n[o.toUpperCase()] : /^[0-9]$/.test(o) ? n["Num" + o] : n.Space;
 }
 async function Ee(e, t) {
   const n = _();
   if (!n) throw new Error("Input automation not installed. Run: npm install");
-  const { keyboard: r } = n;
-  r.config.autoDelayMs = 0;
-  const o = Pe(n, e.config.key), s = h(e.config.intervalMs, 5, 36e5);
+  const { keyboard: o } = n;
+  o.config.autoDelayMs = 0;
+  const r = Pe(n, e.config.key), s = h(e.config.intervalMs, 5, 36e5);
   for (; !t.stopped; )
-    await r.pressKey(o), await r.releaseKey(o), t.count++, await y(s, t);
+    await o.pressKey(r), await o.releaseKey(r), t.count++, await y(s, t);
 }
 async function Ae(e, t) {
   const n = _();
   if (!n) throw new Error("Input automation not installed. Run: npm install");
-  const { keyboard: r, Key: o } = n;
-  r.config.autoDelayMs = 2;
+  const { keyboard: o, Key: r } = n;
+  o.config.autoDelayMs = 2;
   const s = String(e.config.text ?? ""), w = h(e.config.startDelayMs ?? 1500, 0, 6e4), i = h(e.config.intervalMs ?? 1e3, 50, 36e5), A = !!e.config.repeat;
   await y(w, t);
   do {
-    if (t.stopped || (s && await r.type(s), e.config.pressEnter && (await r.pressKey(o.Enter), await r.releaseKey(o.Enter)), t.count++, !A)) break;
+    if (t.stopped || (s && await o.type(s), e.config.pressEnter && (await o.pressKey(r.Enter), await o.releaseKey(r.Enter)), t.count++, !A)) break;
     await y(i, t);
   } while (!t.stopped && A);
 }
 async function ve(e, t) {
   const n = _();
   if (!n) throw new Error("Input automation not installed. Run: npm install");
-  const { mouse: r, Point: o } = n;
-  r.config.autoDelayMs = 0;
+  const { mouse: o, Point: r } = n;
+  o.config.autoDelayMs = 0;
   const s = h(e.config.intervalSeconds ?? 30, 1, 3600) * 1e3, w = h(e.config.distance ?? 5, 1, 200);
   for (; !t.stopped; ) {
     try {
-      const i = await r.getPosition();
-      await r.setPosition(new o(i.x + w, i.y)), await r.setPosition(new o(i.x, i.y)), t.count++;
+      const i = await o.getPosition();
+      await o.setPosition(new r(i.x + w, i.y)), await o.setPosition(new r(i.x, i.y)), t.count++;
     } catch {
     }
     await y(s, t);
@@ -227,8 +238,8 @@ async function ve(e, t) {
 async function Me(e, t) {
   const n = ke();
   if (!n) throw new Error("Playwright not installed. Run: npm install && npx playwright install chromium");
-  const { chromium: r } = n, o = e.config.browser, s = { headless: !1 };
-  (o === "chrome" || o === "msedge") && (s.channel = o);
+  const { chromium: o } = n, r = e.config.browser, s = { headless: !1 };
+  (r === "chrome" || r === "msedge") && (s.channel = r);
   const w = {
     google: { url: "https://www.google.com", box: 'textarea[name="q"], input[name="q"]' },
     bing: { url: "https://www.bing.com", box: 'textarea[name="q"], input[name="q"]' },
@@ -238,11 +249,11 @@ async function Me(e, t) {
   try {
     if (q) {
       const u = f.join(m.getPath("userData"), "lull-browser-profiles", e.id);
-      b = await r.launchPersistentContext(u, s);
+      b = await o.launchPersistentContext(u, s);
     } else
-      v = await r.launch(s), b = await v.newContext();
+      v = await o.launch(s), b = await v.newContext();
   } catch (u) {
-    throw new Error(`Could not launch ${o || "browser"}: ${(u == null ? void 0 : u.message) || u}`);
+    throw new Error(`Could not launch ${r || "browser"}: ${(u == null ? void 0 : u.message) || u}`);
   }
   const $ = async () => {
     try {
@@ -273,9 +284,9 @@ async function Me(e, t) {
     try {
       const g = b.pages();
       if (g.length > 6)
-        for (const re of g.slice(0, g.length - 3))
+        for (const oe of g.slice(0, g.length - 3))
           try {
-            await re.close();
+            await oe.close();
           } catch {
           }
     } catch {
@@ -306,10 +317,10 @@ async function ee(e) {
   const t = Te(e.type);
   if (!t) return { ok: !1, error: `Unknown macro type: ${e.type}` };
   const n = { stopped: !1, count: 0, startedAt: Date.now() };
-  return d.set(e.id, n), j.set(e.id, e), z(), me(), t(e, n).catch((r) => ye(e.id, (r == null ? void 0 : r.message) || String(r))).finally(async () => {
-    var r;
+  return d.set(e.id, n), j.set(e.id, e), z(), me(), t(e, n).catch((o) => ye(e.id, (o == null ? void 0 : o.message) || String(o))).finally(async () => {
+    var o;
     try {
-      await ((r = n.cleanup) == null ? void 0 : r.call(n));
+      await ((o = n.cleanup) == null ? void 0 : o.call(n));
     } catch {
     }
     d.delete(e.id), z();
@@ -383,11 +394,11 @@ function ne() {
 }
 function De(e) {
   c && (c.close(), c = null);
-  const t = oe.getPrimaryDisplay(), { width: n } = t.workAreaSize, r = 560, o = 320;
+  const t = re.getPrimaryDisplay(), { width: n } = t.workAreaSize, o = 560, r = 320;
   c = new L({
-    width: r,
-    height: o,
-    x: Math.round((n - r) / 2),
+    width: o,
+    height: r,
+    x: Math.round((n - o) / 2),
     y: 40,
     frame: !1,
     transparent: !0,
@@ -421,7 +432,7 @@ l.handle("auth:logout", () => pe());
 l.handle("auth:session", () => de());
 l.handle(
   "auth:changePassword",
-  (e, t, n, r) => we(t, n, r)
+  (e, t, n, o) => we(t, n, o)
 );
 l.handle(
   "data:save",

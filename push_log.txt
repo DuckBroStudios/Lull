@@ -1,0 +1,40 @@
+=== git add === 
+warning: in the working copy of 'electron/store.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'ios/App/App.xcodeproj/project.pbxproj', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/App.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/notifications.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'push_lull.bat', LF will be replaced by CRLF the next time Git touches it
+=== git commit === 
+[main 61a41b2] iOS notification sounds + settings, app icon, responsive layout, local notifications
+ 28 files changed, 187 insertions(+), 35 deletions(-)
+ create mode 100644 ios/App/App/sounds/alert.wav
+ create mode 100644 ios/App/App/sounds/beep.wav
+ create mode 100644 ios/App/App/sounds/bloop.wav
+ create mode 100644 ios/App/App/sounds/chime.wav
+ create mode 100644 ios/App/App/sounds/descending.wav
+ create mode 100644 ios/App/App/sounds/ding.wav
+ create mode 100644 ios/App/App/sounds/double-beep.wav
+ create mode 100644 ios/App/App/sounds/marimba.wav
+ create mode 100644 ios/App/App/sounds/pluck.wav
+ create mode 100644 ios/App/App/sounds/rising.wav
+ create mode 100644 ios/App/App/sounds/soft-bell.wav
+ create mode 100644 ios/App/App/sounds/triad.wav
+ create mode 100644 public/sounds/alert.wav
+ create mode 100644 public/sounds/beep.wav
+ create mode 100644 public/sounds/bloop.wav
+ create mode 100644 public/sounds/chime.wav
+ create mode 100644 public/sounds/descending.wav
+ create mode 100644 public/sounds/ding.wav
+ create mode 100644 public/sounds/double-beep.wav
+ create mode 100644 public/sounds/marimba.wav
+ create mode 100644 public/sounds/pluck.wav
+ create mode 100644 public/sounds/rising.wav
+ create mode 100644 public/sounds/soft-bell.wav
+ create mode 100644 public/sounds/triad.wav
+=== git push === 
+To https://github.com/DuckBroStudios/Lull.git
+   5b3163a..61a41b2  main -> main
+=== (pull if needed, then push again) === 
+Already up to date.
+Everything up-to-date
+=== DONE === 
