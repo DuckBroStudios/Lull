@@ -9,7 +9,7 @@ workflows:
       cocoapods: default
     scripts:
       - name: Install dependencies
-        script: npm ci
+        script: npm install
       - name: Build web assets (Vite only)
         script: npx vite build
       - name: Capacitor sync
