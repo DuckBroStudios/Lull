@@ -225,8 +225,13 @@ const APP_ICON_NAMES: Record<string, string> = {
 async function applyAppIcon(key: string) {
   if (!isNative) return;
   try {
-    // key 'default' -> null resets to the primary (asset-catalog) icon
-    await AppIconPlugin.change({ name: key === 'default' ? null : (APP_ICON_NAMES[key] || null), suppressNotification: true });
+    if (key === 'default') {
+      // dedicated reset() returns to the primary icon (change({name:null}) is unreliable)
+      await AppIconPlugin.reset({ suppressNotification: true });
+    } else {
+      const name = APP_ICON_NAMES[key];
+      if (name) await AppIconPlugin.change({ name, suppressNotification: true });
+    }
   } catch { /* native plugin unavailable */ }
 }
 
