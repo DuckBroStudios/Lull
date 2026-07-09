@@ -41,15 +41,6 @@
 				<key>UIPrerenderedIcon</key>
 				<false/>
 			</dict>
-			<key>IconEaster</key>
-			<dict>
-				<key>CFBundleIconFiles</key>
-				<array>
-					<string>IconEaster</string>
-				</array>
-				<key>UIPrerenderedIcon</key>
-				<false/>
-			</dict>
 			<key>IconForest</key>
 			<dict>
 				<key>CFBundleIconFiles</key>
@@ -100,6 +91,15 @@
 				<key>CFBundleIconFiles</key>
 				<array>
 					<string>IconTerra</string>
+				</array>
+				<key>UIPrerenderedIcon</key>
+				<false/>
+			</dict>
+			<key>IconValentines</key>
+			<dict>
+				<key>CFBundleIconFiles</key>
+				<array>
+					<string>IconValentines</string>
 				</array>
 				<key>UIPrerenderedIcon</key>
 				<false/>

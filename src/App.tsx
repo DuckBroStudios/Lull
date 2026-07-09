@@ -31,6 +31,7 @@ interface UserSettings {
   appIcon: string;
   pattern: string;
   music: boolean;
+  autoAppIcon: boolean;
 }
 interface SessionUser {
   username: string;
@@ -55,6 +56,7 @@ const DEFAULT_SETTINGS: UserSettings = {
   appIcon: 'default',
   pattern: 'none',
   music: false,
+  autoAppIcon: false,
 };
 
 // ============ DELIGHT: backgrounds, seasons, sound packs, greeting, icons ============
@@ -110,13 +112,23 @@ const DECOR_SETS: Record<string, string[]> = {
   newyear: ['firework', 'star', 'champagne', 'sparkle', 'firework'],
 };
 
-// pick a holiday theme when in its window, otherwise the season
+// pick a holiday theme when in its window, otherwise the season (used for decorations)
 function decorThemeOf(d: Date): string {
   const m = d.getMonth(), day = d.getDate();
   if ((m === 11 && day >= 31) || (m === 0 && day <= 2)) return 'newyear';
   if (m === 11 && day >= 13) return 'christmas';
   if (m === 9 && day >= 18) return 'halloween';
   if ((m === 2 && day >= 22) || (m === 3 && day <= 21)) return 'easter';
+  return seasonOf(d).label.toLowerCase();
+}
+
+// same idea but for the app-icon set (Valentine's instead of Easter)
+function iconThemeOf(d: Date): string {
+  const m = d.getMonth(), day = d.getDate();
+  if ((m === 11 && day >= 31) || (m === 0 && day <= 2)) return 'newyear';
+  if (m === 11 && day >= 13) return 'christmas';
+  if (m === 9 && day >= 18) return 'halloween';
+  if (m === 1 && day >= 7 && day <= 15) return 'valentines';
   return seasonOf(d).label.toLowerCase();
 }
 
@@ -198,7 +210,7 @@ const APP_ICONS: { key: string; label: string; preview: string; period: string }
   { key: 'summer', label: 'Summer', preview: 'icons/icon-summer.png', period: 'summer' },
   { key: 'autumn', label: 'Autumn', preview: 'icons/icon-autumn.png', period: 'autumn' },
   { key: 'winter', label: 'Winter', preview: 'icons/icon-winter.png', period: 'winter' },
-  { key: 'easter', label: 'Easter', preview: 'icons/icon-easter.png', period: 'easter' },
+  { key: 'valentines', label: "Valentine's", preview: 'icons/icon-valentines.png', period: 'valentines' },
   { key: 'halloween', label: 'Halloween', preview: 'icons/icon-halloween.png', period: 'halloween' },
   { key: 'christmas', label: 'Christmas', preview: 'icons/icon-christmas.png', period: 'christmas' },
   { key: 'newyear', label: 'New Year', preview: 'icons/icon-newyear.png', period: 'newyear' },
@@ -208,7 +220,7 @@ const AppIconPlugin = registerPlugin<any>('AppIcon');
 const APP_ICON_NAMES: Record<string, string> = {
   terra: 'IconTerra', forest: 'IconForest', cream: 'IconCream',
   spring: 'IconSpring', summer: 'IconSummer', autumn: 'IconAutumn', winter: 'IconWinter',
-  easter: 'IconEaster', halloween: 'IconHalloween', christmas: 'IconChristmas', newyear: 'IconNewyear',
+  valentines: 'IconValentines', halloween: 'IconHalloween', christmas: 'IconChristmas', newyear: 'IconNewyear',
 };
 async function applyAppIcon(key: string) {
   if (!isNative) return;
@@ -589,15 +601,22 @@ export default function App() {
     }
   }, [settings.music, musicTrack]);
 
-  // seasonal/holiday app icons expire: if the set icon is outside its window, revert to default
+  // manual mode: if the set seasonal/holiday icon is now out of its window, revert to default
   useEffect(() => {
-    if (!isNative || !loaded) return;
+    if (!isNative || !loaded || settings.autoAppIcon) return;
     const ic = APP_ICONS.find(a => a.key === settings.appIcon);
-    if (ic && ic.period !== 'any' && ic.period !== decorThemeOf(new Date())) {
-      setSettings(s => ({ ...s, appIcon: 'default' }));
-      applyAppIcon('default');
-    }
+    if (!ic) return;
+    const avail = ic.period === 'any' || ic.period === iconThemeOf(new Date()) || ic.period === seasonOf(new Date()).label.toLowerCase();
+    if (!avail) { setSettings(s => ({ ...s, appIcon: 'default' })); applyAppIcon('default'); }
   }, [loaded]);
+
+  // seasonal auto-switch (#134): set the icon matching today's holiday/season when enabled
+  useEffect(() => {
+    if (!isNative || !loaded || !settings.autoAppIcon) return;
+    const it = iconThemeOf(new Date());
+    const target = APP_ICONS.some(a => a.key === it) ? it : seasonOf(new Date()).label.toLowerCase();
+    if (settings.appIcon !== target) { setSettings(s => ({ ...s, appIcon: target })); applyAppIcon(target); }
+  }, [loaded, settings.autoAppIcon]);
 
   // ask for notification permission once
   useEffect(() => {
@@ -1465,13 +1484,13 @@ export default function App() {
                     <label className="text-xs uppercase tracking-wider text-ink-muted block mb-2">App icon</label>
                     <div className="grid grid-cols-4 gap-3">
                       {APP_ICONS.map(ic => {
-                        const available = ic.period === 'any' || ic.period === decorThemeOf(new Date());
+                        const available = ic.period === 'any' || ic.period === iconThemeOf(new Date()) || ic.period === seasonOf(new Date()).label.toLowerCase();
                         return (
                           <button
                             key={ic.key}
                             type="button"
                             disabled={!available}
-                            onClick={() => { if (!available) return; setSettings(s => ({ ...s, appIcon: ic.key })); applyAppIcon(ic.key); }}
+                            onClick={() => { if (!available) return; setSettings(s => ({ ...s, appIcon: ic.key, autoAppIcon: false })); applyAppIcon(ic.key); }}
                             className={`rounded-2xl border-2 p-1.5 transition-all ${settings.appIcon === ic.key ? 'border-terra' : 'border-cream-dark'} ${available ? '' : 'opacity-45'}`}
                             title={available ? ic.label : `${ic.label} — only available in ${ic.label}`}
                           >
@@ -1489,6 +1508,7 @@ export default function App() {
                       })}
                     </div>
                     <p className="text-xs text-ink-muted mt-2">Changes your home-screen icon (device build only). Seasonal and holiday icons unlock during their time of year.</p>
+                    <div className="flex mt-3"><ToggleRow label="Auto seasonal icon (by date)" value={!!settings.autoAppIcon} onChange={v => setSettings(s => ({ ...s, autoAppIcon: v }))} /></div>
                   </div>
                 )}
 

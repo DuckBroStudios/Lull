@@ -37,6 +37,7 @@ export interface UserSettings {
   appIcon: string
   pattern: string
   music: boolean
+  autoAppIcon: boolean
 }
 
 interface StoreFile {
@@ -61,6 +62,7 @@ const DEFAULT_SETTINGS: UserSettings = {
   appIcon: 'default',
   pattern: 'none',
   music: false,
+  autoAppIcon: false,
 }
 
 function storePath(): string {

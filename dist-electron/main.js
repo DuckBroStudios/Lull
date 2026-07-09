@@ -1,4 +1,4 @@
-import { app as m, globalShortcut as I, ipcMain as l, BrowserWindow as L, screen as re, nativeImage as K, Tray as se, Menu as ae } from "electron";
+import { app as m, globalShortcut as T, ipcMain as l, BrowserWindow as L, screen as re, nativeImage as K, Tray as se, Menu as ae } from "electron";
 import { createRequire as J } from "node:module";
 import { fileURLToPath as ie } from "node:url";
 import f from "node:path";
@@ -19,7 +19,8 @@ const C = {
   microAnimations: !0,
   appIcon: "default",
   pattern: "none",
-  music: !1
+  music: !1,
+  autoAppIcon: !1
 };
 function H() {
   return f.join(m.getPath("userData"), "lull-data.json");
@@ -35,7 +36,7 @@ function S() {
     return le();
   }
 }
-function E(e) {
+function A(e) {
   const t = H(), n = `${t}.tmp`;
   x.writeFileSync(n, JSON.stringify(e, null, 2), "utf-8"), x.renameSync(n, t);
 }
@@ -74,15 +75,15 @@ function ue(e, t) {
     tasks: [],
     settings: { ...C, displayName: n }
   };
-  return o.accounts[k(n)] = s, o.session = k(n), E(o), { ok: !0, user: U(s) };
+  return o.accounts[k(n)] = s, o.session = k(n), A(o), { ok: !0, user: U(s) };
 }
 function fe(e, t) {
   const n = S(), o = n.accounts[k(e || "")];
-  return o ? X(t || "", o.salt, o.hash) ? (n.session = k(o.username), E(n), { ok: !0, user: U(o) }) : { ok: !1, error: "Incorrect password." } : { ok: !1, error: "No account with that username." };
+  return o ? X(t || "", o.salt, o.hash) ? (n.session = k(o.username), A(n), { ok: !0, user: U(o) }) : { ok: !1, error: "Incorrect password." } : { ok: !1, error: "No account with that username." };
 }
 function pe() {
   const e = S();
-  return e.session = null, E(e), { ok: !0 };
+  return e.session = null, A(e), { ok: !0 };
 }
 function de() {
   const e = S();
@@ -92,7 +93,7 @@ function de() {
 }
 function he(e, t) {
   const n = S(), o = n.accounts[k(e || "")];
-  return o ? (Array.isArray(t.reminders) && (o.reminders = t.reminders), Array.isArray(t.tasks) && (o.tasks = t.tasks), t.settings && (o.settings = { ...C, ...o.settings, ...t.settings }), E(n), { ok: !0 }) : { ok: !1, error: "Account not found." };
+  return o ? (Array.isArray(t.reminders) && (o.reminders = t.reminders), Array.isArray(t.tasks) && (o.tasks = t.tasks), t.settings && (o.settings = { ...C, ...o.settings, ...t.settings }), A(n), { ok: !0 }) : { ok: !1, error: "Account not found." };
 }
 function we(e, t, n) {
   const o = S(), r = o.accounts[k(e || "")];
@@ -101,7 +102,7 @@ function we(e, t, n) {
     return { ok: !1, error: "Current password is incorrect." };
   if ((n || "").length < 4) return { ok: !1, error: "New password must be at least 4 characters." };
   const s = G(16).toString("hex");
-  return r.salt = s, r.hash = W(n, s), E(o), { ok: !0 };
+  return r.salt = s, r.hash = W(n, s), A(o), { ok: !0 };
 }
 const Y = J(import.meta.url), d = /* @__PURE__ */ new Map();
 let j = /* @__PURE__ */ new Map(), Z = [], D = "", p = null, M = null;
@@ -199,7 +200,7 @@ function Pe(e, t) {
   }, s = o.toLowerCase();
   return r[s] ? r[s] : /^f([1-9]|1[0-9]|2[0-4])$/i.test(o) ? n["F" + o.slice(1)] : /^[a-z]$/i.test(o) ? n[o.toUpperCase()] : /^[0-9]$/.test(o) ? n["Num" + o] : n.Space;
 }
-async function Ee(e, t) {
+async function Ae(e, t) {
   const n = _();
   if (!n) throw new Error("Input automation not installed. Run: npm install");
   const { keyboard: o } = n;
@@ -208,17 +209,17 @@ async function Ee(e, t) {
   for (; !t.stopped; )
     await o.pressKey(r), await o.releaseKey(r), t.count++, await y(s, t);
 }
-async function Ae(e, t) {
+async function Ee(e, t) {
   const n = _();
   if (!n) throw new Error("Input automation not installed. Run: npm install");
   const { keyboard: o, Key: r } = n;
   o.config.autoDelayMs = 2;
-  const s = String(e.config.text ?? ""), w = h(e.config.startDelayMs ?? 1500, 0, 6e4), i = h(e.config.intervalMs ?? 1e3, 50, 36e5), A = !!e.config.repeat;
+  const s = String(e.config.text ?? ""), w = h(e.config.startDelayMs ?? 1500, 0, 6e4), i = h(e.config.intervalMs ?? 1e3, 50, 36e5), E = !!e.config.repeat;
   await y(w, t);
   do {
-    if (t.stopped || (s && await o.type(s), e.config.pressEnter && (await o.pressKey(r.Enter), await o.releaseKey(r.Enter)), t.count++, !A)) break;
+    if (t.stopped || (s && await o.type(s), e.config.pressEnter && (await o.pressKey(r.Enter), await o.releaseKey(r.Enter)), t.count++, !E)) break;
     await y(i, t);
-  } while (!t.stopped && A);
+  } while (!t.stopped && E);
 }
 async function ve(e, t) {
   const n = _();
@@ -244,7 +245,7 @@ async function Me(e, t) {
     google: { url: "https://www.google.com", box: 'textarea[name="q"], input[name="q"]' },
     bing: { url: "https://www.bing.com", box: 'textarea[name="q"], input[name="q"]' },
     duckduckgo: { url: "https://duckduckgo.com", box: 'input[name="q"]' }
-  }, i = w[e.config.searchEngine] || w.google, A = h(e.config.delaySeconds ?? 3, 0.5, 3600) * 1e3, q = !!e.config.persistProfile, V = !!e.config.keepOpenOnStop;
+  }, i = w[e.config.searchEngine] || w.google, E = h(e.config.delaySeconds ?? 3, 0.5, 3600) * 1e3, q = !!e.config.persistProfile, V = !!e.config.keepOpenOnStop;
   let v = null, b;
   try {
     if (q) {
@@ -291,18 +292,18 @@ async function Me(e, t) {
           }
     } catch {
     }
-    await y(A, t);
+    await y(E, t);
   }
   V || await $();
 }
-function Te(e) {
+function Ie(e) {
   switch (e) {
     case "autoclicker":
       return Se;
     case "keypresser":
-      return Ee;
-    case "autotyper":
       return Ae;
+    case "autotyper":
+      return Ee;
     case "mousejiggler":
       return ve;
     case "browsersearch":
@@ -314,7 +315,7 @@ function Te(e) {
 async function ee(e) {
   if (!(e != null && e.id)) return { ok: !1, error: "Invalid macro." };
   if (d.has(e.id)) return { ok: !0 };
-  const t = Te(e.type);
+  const t = Ie(e.type);
   if (!t) return { ok: !1, error: `Unknown macro type: ${e.type}` };
   const n = { stopped: !1, count: 0, startedAt: Date.now() };
   return d.set(e.id, n), j.set(e.id, e), z(), me(), t(e, n).catch((o) => ye(e.id, (o == null ? void 0 : o.message) || String(o))).finally(async () => {
@@ -341,7 +342,7 @@ async function B() {
   const e = Array.from(d.keys());
   await Promise.all(e.map(O));
 }
-function Ie() {
+function Te() {
   return Array.from(d.keys());
 }
 function _e(e) {
@@ -353,16 +354,16 @@ function _e(e) {
   }
 }
 function te() {
-  I.unregisterAll();
+  T.unregisterAll();
   for (const e of Z)
     if (e.keybind)
       try {
-        I.register(e.keybind, () => _e(e.id));
+        T.register(e.keybind, () => _e(e.id));
       } catch {
       }
   if (D)
     try {
-      I.register(D, () => {
+      T.register(D, () => {
         B();
       });
     } catch {
@@ -379,7 +380,7 @@ const F = f.dirname(ie(import.meta.url));
 process.env.APP_ROOT = f.join(F, "..");
 const P = process.env.VITE_DEV_SERVER_URL, Ne = f.join(process.env.APP_ROOT, "dist-electron"), N = f.join(process.env.APP_ROOT, "dist");
 process.env.VITE_PUBLIC = P ? f.join(process.env.APP_ROOT, "public") : N;
-let a, c = null, T = null, R = !1;
+let a, c = null, I = null, R = !1;
 function ne() {
   a = new L({
     icon: f.join(process.env.VITE_PUBLIC, "icon.png"),
@@ -441,7 +442,7 @@ l.handle(
 l.handle("macros:run", (e, t) => ee(t));
 l.handle("macros:stop", (e, t) => O(t));
 l.handle("macros:stopAll", () => B());
-l.handle("macros:status", () => Ie());
+l.handle("macros:status", () => Te());
 l.handle("macros:sync", (e, t) => (Re(Array.isArray(t) ? t : []), { ok: !0 }));
 l.handle("macros:panic", (e, t) => (xe(t || ""), { ok: !0 }));
 l.on("show-alert", (e, t) => {
@@ -455,7 +456,7 @@ l.on("alert-action", (e, t, n) => {
 });
 function Le() {
   const e = f.join(process.env.VITE_PUBLIC, "icon.png"), t = K.createFromPath(e);
-  T = new se(t.isEmpty() ? K.createEmpty() : t), T.setToolTip("Lull");
+  I = new se(t.isEmpty() ? K.createEmpty() : t), I.setToolTip("Lull");
   const n = ae.buildFromTemplate([
     { label: "Show Lull", click: () => {
       a == null || a.show(), a == null || a.focus();
@@ -465,7 +466,7 @@ function Le() {
       R = !0, m.quit();
     } }
   ]);
-  T.setContextMenu(n), T.on("click", () => {
+  I.setContextMenu(n), I.on("click", () => {
     a && (a.isVisible() ? a.hide() : (a.show(), a.focus()));
   });
 }
@@ -473,7 +474,7 @@ m.on("window-all-closed", () => {
   process.platform !== "darwin" && R && (m.quit(), a = null);
 });
 m.on("before-quit", () => {
-  R = !0, B(), I.unregisterAll();
+  R = !0, B(), T.unregisterAll();
 });
 m.on("activate", () => {
   L.getAllWindows().length === 0 ? ne() : a == null || a.show();

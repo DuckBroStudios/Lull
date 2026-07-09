@@ -5,7 +5,7 @@ echo === git add === > push_log.txt
 git add -A >> push_log.txt 2>&1
 git reset -- push_lull.bat push_log.txt >> push_log.txt 2>&1
 echo === git commit === >> push_log.txt
-git commit -m "iOS notification sounds + settings, app icon, responsive layout, local notifications" >> push_log.txt 2>&1
+git commit -m "Personalization + delight: themes, colours, patterns, seasonal decorations, ambient music, and seasonal/holiday app icons with auto-switch" >> push_log.txt 2>&1
 echo === git push === >> push_log.txt
 git push >> push_log.txt 2>&1
 echo === (pull if needed, then push again) === >> push_log.txt
