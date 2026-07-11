@@ -445,6 +445,7 @@ function nextReminderTrigger(ts: number, repeat: string, now: number): number {
     if (repeat === 'daily') d.setDate(d.getDate() + 1);
     else if (repeat === 'weekly') d.setDate(d.getDate() + 7);
     else if (repeat === 'weekdays') { do { d.setDate(d.getDate() + 1); } while (d.getDay() === 0 || d.getDay() === 6); }
+    else if (repeat === 'weekends') { do { d.setDate(d.getDate() + 1); } while (d.getDay() !== 0 && d.getDay() !== 6); }
     else d.setFullYear(d.getFullYear() + 100);
   };
   let guard = 0;
@@ -452,7 +453,7 @@ function nextReminderTrigger(ts: number, repeat: string, now: number): number {
   return d.getTime();
 }
 
-const repeatLabel = (r: string) => r === 'weekdays' ? 'Weekdays' : r === 'weekly' ? 'Weekly' : r === 'daily' ? 'Daily' : '';
+const repeatLabel = (r: string) => r === 'weekdays' ? 'Weekdays' : r === 'weekends' ? 'Weekends' : r === 'weekly' ? 'Weekly' : r === 'daily' ? 'Daily' : '';
 
 export default function App() {
   // ============ AUTH STATE ============
@@ -1311,8 +1312,8 @@ export default function App() {
 
                 <div>
                   <label className="text-xs uppercase tracking-wider text-ink-muted block mb-2">Repeat</label>
-                  <div className="grid grid-cols-4 gap-2">
-                    {[['none', 'Once'], ['daily', 'Daily'], ['weekdays', 'Weekdays'], ['weekly', 'Weekly']].map(([v, l]) => (
+                  <div className="grid grid-cols-3 gap-2">
+                    {[['none', 'Once'], ['daily', 'Daily'], ['weekdays', 'Weekdays'], ['weekends', 'Weekends'], ['weekly', 'Weekly']].map(([v, l]) => (
                       <button
                         key={v}
                         type="button"

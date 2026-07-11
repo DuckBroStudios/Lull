@@ -27,21 +27,6 @@ export async function requestReminderPermission(): Promise<void> {
   }
 }
 
-// Next occurrence strictly after `now` for a repeating reminder — mirrors the
-// recurrence rule used by the desktop scheduler in App.tsx.
-function nextTrigger(ts: number, repeat: string, now: number): number {
-  const d = new Date(ts);
-  const advance = () => {
-    if (repeat === 'daily') d.setDate(d.getDate() + 1);
-    else if (repeat === 'weekly') d.setDate(d.getDate() + 7);
-    else if (repeat === 'weekdays') { do { d.setDate(d.getDate() + 1); } while (d.getDay() === 0 || d.getDay() === 6); }
-    else d.setFullYear(d.getFullYear() + 100);
-  };
-  let guard = 0;
-  do { advance(); guard++; } while (d.getTime() <= now && guard < 5000);
-  return d.getTime();
-}
-
 // Notification content shared by every entry for a reminder. When vibration is
 // off we omit the sound entirely so iOS shows a quiet banner (no buzz).
 function contentBase(r: any, opts: NotifyOptions): any {
@@ -53,37 +38,53 @@ function contentBase(r: any, opts: NotifyOptions): any {
 // Build the schedule entries (without ids — ids are assigned in the sync step,
 // since we cancel-all and reschedule every time, so they only need to be unique
 // within a batch).
+//
+// Recurring reminders use `schedule.on` (calendar components) so iOS builds a
+// repeating UNCalendarNotificationTrigger and fires them forever on its own,
+// even while the app is closed. (Passing `at` + `every` does NOT repeat — when
+// `at` is present the plugin ignores `every` and fires exactly once.)
 function buildForReminder(r: any, now: number, opts: NotifyOptions): any[] {
   const base = contentBase(r, opts);
   const repeat = r.repeat && r.repeat !== 'none' ? r.repeat : 'none';
+
+  // Time-of-day the reminder should fire at (from its original trigger time).
+  const src = new Date(r.triggerAt);
+  const hour = src.getHours();
+  const minute = src.getMinutes();
 
   let entries: any[] = [];
   if (repeat === 'none') {
     if (r.triggerAt <= now) return [];
     entries = [{ ...base, schedule: { at: new Date(r.triggerAt), allowWhileIdle: true } }];
-  } else if (repeat === 'daily' || repeat === 'weekly') {
-    const at = new Date(nextTrigger(r.triggerAt, repeat, now));
-    const every = repeat === 'daily' ? 'day' : 'week';
-    entries = [{ ...base, schedule: { at, every, allowWhileIdle: true } }];
-  } else {
-    // 'weekdays' — schedule several upcoming occurrences (fewer when strong-alert
-    // triples the count) and refresh them whenever the app opens.
-    const count = opts.strongAlert ? 5 : 14;
-    let t = r.triggerAt;
-    for (let i = 0; i < count; i++) {
-      t = nextTrigger(t, 'weekdays', i === 0 ? now : t - 1);
-      entries.push({ ...base, schedule: { at: new Date(t), allowWhileIdle: true } });
-    }
+  } else if (repeat === 'daily') {
+    // Repeats every day at hour:minute.
+    entries = [{ ...base, schedule: { on: { hour, minute }, allowWhileIdle: true, repeats: true } }];
+  } else if (repeat === 'weekly') {
+    // Repeats weekly on the reminder's own weekday (1 = Sunday … 7 = Saturday).
+    const weekday = src.getDay() + 1;
+    entries = [{ ...base, schedule: { on: { weekday, hour, minute }, allowWhileIdle: true, repeats: true } }];
+  } else if (repeat === 'weekdays' || repeat === 'weekends') {
+    // One repeating entry per matching weekday (Mon–Fri = 2..6, Sat/Sun = 7,1).
+    const days = repeat === 'weekdays' ? [2, 3, 4, 5, 6] : [1, 7];
+    entries = days.map(weekday => ({
+      ...base, schedule: { on: { weekday, hour, minute }, allowWhileIdle: true, repeats: true },
+    }));
   }
 
   if (!opts.strongAlert) return entries;
 
-  // Strong alert: clone each entry into 3 that fire ~1.2s apart for a longer buzz.
+  // Strong alert: for one-shot (`at`) reminders, clone into 3 that fire ~1.2s
+  // apart for a longer buzz. Calendar-repeat entries fire on a minute boundary,
+  // so they can't be sub-minute cloned — they're left as a single strong banner.
   const expanded: any[] = [];
   for (const e of entries) {
-    for (let k = 0; k < 3; k++) {
-      const at = new Date(e.schedule.at.getTime() + k * 1200);
-      expanded.push({ ...e, schedule: { ...e.schedule, at } });
+    if (e.schedule.at instanceof Date) {
+      for (let k = 0; k < 3; k++) {
+        const at = new Date(e.schedule.at.getTime() + k * 1200);
+        expanded.push({ ...e, schedule: { ...e.schedule, at } });
+      }
+    } else {
+      expanded.push(e);
     }
   }
   return expanded;
