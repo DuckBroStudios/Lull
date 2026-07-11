@@ -453,6 +453,20 @@ function nextReminderTrigger(ts: number, repeat: string, now: number): number {
   return d.getTime();
 }
 
+// The first time a recurring reminder should fire: the picked time if it's
+// already a valid future occurrence, otherwise the next matching day. Keeps
+// weekdays/weekends reminders from firing "now" on a non-matching day.
+function firstValidTrigger(ts: number, repeat: string, now: number): number {
+  if (!repeat || repeat === 'none') return ts;
+  const g = new Date(ts).getDay();
+  const dayOk =
+    repeat === 'weekdays' ? (g !== 0 && g !== 6) :
+    repeat === 'weekends' ? (g === 0 || g === 6) :
+    true; // daily and weekly are valid on the chosen day
+  if (ts > now && dayOk) return ts;
+  return nextReminderTrigger(ts, repeat, now);
+}
+
 const repeatLabel = (r: string) => r === 'weekdays' ? 'Weekdays' : r === 'weekends' ? 'Weekends' : r === 'weekly' ? 'Weekly' : r === 'daily' ? 'Daily' : '';
 
 export default function App() {
@@ -719,7 +733,8 @@ export default function App() {
 
   const saveReminder = () => {
     if (!title.trim() || !date || !time) return;
-    const triggerAt = new Date(`${date}T${time}:00`).getTime();
+    const picked = new Date(`${date}T${time}:00`).getTime();
+    const triggerAt = firstValidTrigger(picked, repeat, Date.now());
     const newR = {
       id: Date.now() + Math.random(),
       title: title.trim(),
