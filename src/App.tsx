@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Plus, X, Image as ImageIcon, Trash2, AlarmClock, Bell, Clock, Settings, LogOut, User, Moon, Sun, Volume2, VolumeX, Eye, EyeOff, Zap, Play, Square, MousePointerClick, Keyboard, Type, Move, Globe, Pencil, ChevronLeft, AlertTriangle, Music, Pause, Lock } from 'lucide-react';
+import { Plus, X, Image as ImageIcon, Trash2, AlarmClock, Bell, Clock, Settings, LogOut, User, Moon, Sun, Volume2, VolumeX, Eye, EyeOff, Zap, Play, Square, MousePointerClick, Keyboard, Type, Move, Globe, Pencil, ChevronLeft, AlertTriangle, Music, Pause, Lock, Flame, Trophy, Target, TrendingUp, Gift, BarChart3, Sparkles } from 'lucide-react';
 import { isNative, requestReminderPermission, syncReminderNotifications } from './notifications';
 import { registerPlugin } from '@capacitor/core';
 
@@ -469,12 +469,120 @@ function firstValidTrigger(ts: number, repeat: string, now: number): number {
 
 const repeatLabel = (r: string) => r === 'weekdays' ? 'Weekdays' : r === 'weekends' ? 'Weekends' : r === 'weekly' ? 'Weekly' : r === 'daily' ? 'Daily' : '';
 
+// ============================================================
+// GAMIFICATION — points, streaks, stats, achievements.
+// All of this is cross-platform (no native APIs) and persists to
+// localStorage per account, so it survives restarts on desktop and mobile.
+// ============================================================
+interface DayStat { completed: number; missed: number }
+interface CustomReward { goalType: 'completions' | 'streak'; goal: number; text: string; claimed: boolean }
+interface GameState {
+  xp: number;
+  completedTotal: number;
+  missedTotal: number;
+  streak: number;
+  bestStreak: number;
+  lastStreakDay: string;        // 'YYYY-MM-DD' the streak was last credited
+  achievements: string[];       // unlocked achievement ids
+  history: Record<string, DayStat>; // keyed by 'YYYY-MM-DD'
+  reward: CustomReward | null;
+  celebratedDay: string;        // 'YYYY-MM-DD' confetti last fired
+}
+
+const DEFAULT_GAME: GameState = {
+  xp: 0, completedTotal: 0, missedTotal: 0, streak: 0, bestStreak: 0,
+  lastStreakDay: '', achievements: [], history: {}, reward: null, celebratedDay: '',
+};
+
+const dayKey = (ts: number): string => {
+  const d = new Date(ts);
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+};
+
+// XP → level. Each level costs a bit more than the last (100, 250, 450, …).
+function levelFromXp(xp: number): { level: number; into: number; span: number } {
+  let level = 1, need = 100, acc = 0;
+  while (xp >= acc + need) { acc += need; level++; need += 150; }
+  return { level, into: xp - acc, span: need };
+}
+
+const XP_PER_COMPLETION = 10;
+const XP_ONTIME_BONUS = 5;
+// How close to the due time still counts as "on time" (fuels the streak).
+const ONTIME_WINDOW_MS = 30 * 60 * 1000;
+
+interface AchievementDef { id: string; label: string; desc: string; test: (g: GameState) => boolean }
+const ACHIEVEMENTS: AchievementDef[] = [
+  { id: 'first',    label: 'First Step',    desc: 'Complete your first reminder',   test: g => g.completedTotal >= 1 },
+  { id: 'ten',      label: 'Getting Going', desc: 'Complete 10 reminders',          test: g => g.completedTotal >= 10 },
+  { id: 'fifty',    label: 'Committed',     desc: 'Complete 50 reminders',          test: g => g.completedTotal >= 50 },
+  { id: 'hundred',  label: 'Centurion',     desc: 'Complete 100 reminders',         test: g => g.completedTotal >= 100 },
+  { id: 'streak3',  label: 'Warming Up',    desc: 'Reach a 3-day streak',           test: g => g.bestStreak >= 3 },
+  { id: 'streak7',  label: 'On Fire',       desc: 'Reach a 7-day streak',           test: g => g.bestStreak >= 7 },
+  { id: 'streak30', label: 'Unstoppable',   desc: 'Reach a 30-day streak',          test: g => g.bestStreak >= 30 },
+  { id: 'level5',   label: 'Seasoned',      desc: 'Reach level 5',                  test: g => levelFromXp(g.xp).level >= 5 },
+];
+
+// Record a completion and return the next game state (+ any newly unlocked ids).
+function applyCompletion(g: GameState, onTime: boolean, now: number): { next: GameState; unlocked: string[] } {
+  const today = dayKey(now);
+  const hist = { ...g.history };
+  const d = hist[today] || { completed: 0, missed: 0 };
+  hist[today] = { ...d, completed: d.completed + 1 };
+
+  let { streak, bestStreak, lastStreakDay } = g;
+  if (onTime && lastStreakDay !== today) {
+    const yesterday = dayKey(now - 86400000);
+    streak = lastStreakDay === yesterday ? streak + 1 : 1;
+    lastStreakDay = today;
+    bestStreak = Math.max(bestStreak, streak);
+  }
+
+  const next: GameState = {
+    ...g,
+    xp: g.xp + XP_PER_COMPLETION + (onTime ? XP_ONTIME_BONUS : 0),
+    completedTotal: g.completedTotal + 1,
+    streak, bestStreak, lastStreakDay,
+    history: hist,
+  };
+
+  const unlocked = ACHIEVEMENTS.filter(a => !next.achievements.includes(a.id) && a.test(next)).map(a => a.id);
+  if (unlocked.length) next.achievements = [...next.achievements, ...unlocked];
+  return { next, unlocked };
+}
+
+function applyMiss(g: GameState, now: number): GameState {
+  const today = dayKey(now);
+  const hist = { ...g.history };
+  const d = hist[today] || { completed: 0, missed: 0 };
+  hist[today] = { ...d, missed: d.missed + 1 };
+  return { ...g, missedTotal: g.missedTotal + 1, history: hist };
+}
+
+// Pre-computed confetti pieces (fixed set so the burst is deterministic per render).
+const CONFETTI_COLORS = ['#C8553D', '#E4A05B', '#6B8F71', '#D98E48', '#EAD7B7', '#8C5A3C'];
+const CONFETTI_PIECES = Array.from({ length: 70 }, (_, i) => ({
+  left: (i * 37) % 100,
+  size: 7 + (i % 4) * 2,
+  color: CONFETTI_COLORS[i % CONFETTI_COLORS.length],
+  dur: 1.8 + (i % 5) * 0.3,
+  delay: (i % 10) * 0.08,
+}));
+
 export default function App() {
   // ============ AUTH STATE ============
   const [user, setUser] = useState<SessionUser | null>(null);
   const [authChecked, setAuthChecked] = useState(isAlertWindow); // alert window skips auth
   const [settings, setSettings] = useState<UserSettings>(DEFAULT_SETTINGS);
   const [showSettings, setShowSettings] = useState(false);
+
+  // ============ GAMIFICATION STATE ============
+  const [game, setGame] = useState<GameState>(DEFAULT_GAME);
+  const [showStats, setShowStats] = useState(false);
+  const [toast, setToast] = useState<string>('');       // achievement / unlock toast
+  const [confettiOn, setConfettiOn] = useState(false);   // one-shot celebration burst
+  const [rewardBanner, setRewardBanner] = useState<string>(''); // custom-reward achieved
 
   // ============ TASK / MACRO STATE ============
   const [tasks, setTasks] = useState<Macro[]>([]);
@@ -501,6 +609,8 @@ export default function App() {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const musicRef = useRef<HTMLAudioElement>(null);
+  const remindersRef = useRef<any[]>([]); // latest reminders, for stable IPC callbacks
+  useEffect(() => { remindersRef.current = reminders; }, [reminders]);
 
   // ============ EFFECTS ============
 
@@ -546,6 +656,11 @@ export default function App() {
     setSettings({ ...DEFAULT_SETTINGS, ...u.settings });
     setReminders([...rems].sort((a, b) => a.triggerAt - b.triggerAt));
     setTasks(Array.isArray(u.tasks) ? u.tasks : []);
+    // gamification: per-account progress lives in localStorage so it persists everywhere
+    try {
+      const raw = localStorage.getItem(`lull-game-${u.username.toLowerCase()}`);
+      setGame(raw ? { ...DEFAULT_GAME, ...JSON.parse(raw) } : DEFAULT_GAME);
+    } catch { setGame(DEFAULT_GAME); }
     setLoaded(true);
   };
 
@@ -560,6 +675,35 @@ export default function App() {
     if (!loaded || isAlertWindow || !user) return;
     api.save(user.username, { reminders });
   }, [reminders, loaded]);
+
+  // persist gamification progress to localStorage whenever it changes
+  useEffect(() => {
+    if (!loaded || isAlertWindow || !user) return;
+    try { localStorage.setItem(`lull-game-${user.username.toLowerCase()}`, JSON.stringify(game)); } catch { /* quota */ }
+  }, [game, loaded]);
+
+  // Record a completed reminder: award XP, extend the streak if on time, and
+  // surface a toast for any freshly-unlocked achievement. Used by every "done" path.
+  const recordCompletion = (r: any) => {
+    if (isAlertWindow) return;
+    const nowTs = Date.now();
+    const onTime = Math.abs(nowTs - (r?.triggerAt ?? nowTs)) <= ONTIME_WINDOW_MS;
+    setGame(g => {
+      const { next, unlocked } = applyCompletion(g, onTime, nowTs);
+      if (unlocked.length) {
+        const first = ACHIEVEMENTS.find(a => a.id === unlocked[0]);
+        if (first) setToast(`Achievement unlocked — ${first.label}`);
+      }
+      return next;
+    });
+  };
+
+  // Record a missed reminder (deleted while overdue).
+  const recordMiss = (r: any) => {
+    if (isAlertWindow) return;
+    if (!r || r.dismissed || r.triggerAt > Date.now()) return;
+    setGame(g => applyMiss(g, Date.now()));
+  };
 
   // iOS: (re)schedule OS local notifications whenever the reminder list changes.
   // No-op on desktop, so the Electron alert path is untouched.
@@ -667,6 +811,8 @@ export default function App() {
     if (!ipc) return;
     const off = ipc.on('alert-action', (action: 'dismiss' | 'snooze', reminderId: number) => {
       if (action === 'dismiss') {
+        const done = remindersRef.current.find(r => r.id === reminderId);
+        if (done) recordCompletion(done);
         setReminders(rs => rs.map(r => r.id === reminderId
           ? (isRecurring(r) ? { ...r, triggerAt: nextReminderTrigger(r.triggerAt, r.repeat, Date.now()) } : { ...r, dismissed: true })
           : r));
@@ -761,11 +907,21 @@ export default function App() {
     if (isAlertWindow) {
       ipc?.send('alert-action', 'dismiss', alertData.id);
     } else if (activeAlert) {
+      recordCompletion(activeAlert);
       setReminders(rs => rs.map(r => r.id === activeAlert.id
         ? (isRecurring(r) ? { ...r, triggerAt: nextReminderTrigger(r.triggerAt, r.repeat, Date.now()) } : { ...r, dismissed: true })
         : r));
       setActiveAlert(null);
     }
+  };
+
+  // Mark a reminder done straight from its card (works on desktop and mobile).
+  const completeReminder = (id: number) => {
+    const r = remindersRef.current.find(x => x.id === id);
+    if (r) recordCompletion(r);
+    setReminders(rs => rs.map(x => x.id === id
+      ? (isRecurring(x) ? { ...x, triggerAt: nextReminderTrigger(x.triggerAt, x.repeat, Date.now()) } : { ...x, dismissed: true })
+      : x));
   };
 
   const snooze = () => {
@@ -780,7 +936,9 @@ export default function App() {
   };
 
   const deleteReminder = (id: number) => {
-    setReminders(rs => rs.filter(r => r.id !== id));
+    const r = remindersRef.current.find(x => x.id === id);
+    if (r) recordMiss(r); // deleting an overdue reminder counts as a miss
+    setReminders(rs => rs.filter(x => x.id !== id));
   };
 
   const handleLogout = async () => {
@@ -789,8 +947,10 @@ export default function App() {
     setReminders([]);
     setTasks([]);
     setSettings(DEFAULT_SETTINGS);
+    setGame(DEFAULT_GAME);
     setLoaded(false);
     setShowSettings(false);
+    setShowStats(false);
   };
 
   // ============ TASK / MACRO ACTIONS ============
@@ -841,6 +1001,44 @@ export default function App() {
   const upcoming = reminders.filter(r => !r.dismissed).sort((a, b) => a.triggerAt - b.triggerAt);
   const ukNow = fmtTime(now);
   const themeClass = `theme-${settings.theme}`;
+
+  // ---- gamification derived values ----
+  const todayKey = dayKey(now);
+  const todayStat = game.history[todayKey] || { completed: 0, missed: 0 };
+  const doneToday = todayStat.completed;
+  // reminders still scheduled to fire today (not yet done)
+  const pendingToday = reminders.filter(r => !r.dismissed && dayKey(r.triggerAt) === todayKey).length;
+  const dueToday = doneToday + pendingToday;
+  const progressPct = dueToday > 0 ? Math.round((doneToday / dueToday) * 100) : 0;
+  const lvl = levelFromXp(game.xp);
+
+  // Confetti when the last of today's reminders is cleared (once per day).
+  useEffect(() => {
+    if (isAlertWindow || !loaded) return;
+    if (doneToday > 0 && pendingToday === 0 && game.celebratedDay !== todayKey) {
+      setGame(g => ({ ...g, celebratedDay: todayKey }));
+      if (settings.microAnimations !== false) {
+        setConfettiOn(true);
+        setTimeout(() => setConfettiOn(false), 2600);
+      }
+    }
+  }, [doneToday, pendingToday, loaded]);
+
+  // Custom reward: fire the banner once the goal is reached.
+  useEffect(() => {
+    if (isAlertWindow || !loaded) return;
+    const rw = game.reward;
+    if (!rw || rw.claimed) return;
+    const reached = rw.goalType === 'completions' ? game.completedTotal >= rw.goal : game.bestStreak >= rw.goal;
+    if (reached) setRewardBanner(rw.text || 'You hit your goal!');
+  }, [game.completedTotal, game.bestStreak, game.reward, loaded]);
+
+  // Auto-clear the achievement toast.
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(''), 3600);
+    return () => clearTimeout(t);
+  }, [toast]);
   const packFiles = (SOUND_PACKS[settings.soundPack] || SOUND_PACKS.all).files;
   const visibleSounds = NOTIF_SOUNDS.filter(s => packFiles.includes(s.file));
 
@@ -948,6 +1146,12 @@ export default function App() {
       @keyframes lull-float { 0%, 100% { transform: translateY(0) rotate(-4deg); } 50% { transform: translateY(-14px) rotate(4deg); } }
       .lull-float { animation: lull-float 6s ease-in-out infinite; will-change: transform; }
 
+      /* ===== Confetti celebration ===== */
+      @keyframes lull-confetti {
+        0%   { transform: translateY(0) rotate(0deg); opacity: 1; }
+        100% { transform: translateY(108vh) rotate(720deg); opacity: 0.9; }
+      }
+
       /* ===== Mobile layout only (desktop >600px untouched) ===== */
       @media (max-width: 600px) {
         /* honour iOS safe areas: keep content clear of the status bar, battery,
@@ -1045,6 +1249,46 @@ export default function App() {
       <div className={`${themeClass} min-h-screen font-body text-ink relative ${settings.zenMode ? 'zen' : (settings.autoSeasonal ? `season-${seasonOf(new Date(now)).label.toLowerCase()}` : '')} ${settings.microAnimations !== false ? 'micro-anim' : ''}`} style={{ background: resolveBackground(settings, now) }}>
         <div className="absolute top-0 right-0 w-96 h-96 rounded-full pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(200,85,61,0.12), transparent 70%)' }}/>
 
+        {confettiOn && (
+          <div className="pointer-events-none fixed inset-0 z-40 overflow-hidden" aria-hidden="true">
+            {CONFETTI_PIECES.map((c, i) => (
+              <span
+                key={i}
+                style={{
+                  position: 'absolute', top: '-5%', left: `${c.left}%`,
+                  width: c.size, height: c.size * 1.6, background: c.color,
+                  borderRadius: 2, opacity: 0.9,
+                  animation: `lull-confetti ${c.dur}s ${c.delay}s ease-in forwards`,
+                }}
+              />
+            ))}
+          </div>
+        )}
+
+        {toast && (
+          <div className="fixed top-5 left-1/2 -translate-x-1/2 z-50 bg-ink text-cream rounded-full px-5 py-3 shadow-xl flex items-center gap-2 animate-slide-down"
+               style={{ marginTop: 'env(safe-area-inset-top)' }}>
+            <Trophy size={16} className="text-terra-light" strokeWidth={2}/>
+            <span className="text-sm font-medium">{toast}</span>
+          </div>
+        )}
+
+        {rewardBanner && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-ink/40 backdrop-blur-sm" onClick={() => setRewardBanner('')}>
+            <div className="bg-cream rounded-3xl max-w-sm w-full p-8 text-center border-2 border-terra animate-slide-down" onClick={e => e.stopPropagation()}>
+              <Gift size={40} className="text-terra mx-auto mb-4" strokeWidth={1.6}/>
+              <h3 className="font-display text-2xl text-ink mb-2">Reward unlocked!</h3>
+              <p className="text-ink-muted mb-6">{rewardBanner}</p>
+              <button
+                onClick={() => { setGame(g => g.reward ? { ...g, reward: { ...g.reward, claimed: true } } : g); setRewardBanner(''); }}
+                className="bg-terra text-cream rounded-full px-6 py-3 font-medium hover:bg-terra-dark transition-colors"
+              >
+                Claim it
+              </button>
+            </div>
+          </div>
+        )}
+
         {settings.pattern && settings.pattern !== 'none' && (
           <div className="pointer-events-none fixed inset-0" style={{ zIndex: 0, ...patternStyle(settings) }} aria-hidden="true"/>
         )}
@@ -1092,7 +1336,28 @@ export default function App() {
               </h1>
             </div>
             <div className="flex items-center gap-3 lull-header-right">
-              <div className="bg-card rounded-full px-5 py-3 border border-cream-dark flex items-center gap-3 shadow-sm">
+              <button
+                onClick={() => setShowStats(true)}
+                className="bg-card rounded-full px-4 py-3 border border-cream-dark flex items-center gap-3 shadow-sm hover:border-terra transition-colors"
+                aria-label="Stats & achievements"
+                title="Stats, streak & achievements"
+              >
+                <span className="flex items-center gap-1.5" title={`${game.streak}-day streak`}>
+                  <Flame
+                    size={18 + Math.min(game.streak, 10)}
+                    strokeWidth={1.8}
+                    className={game.streak > 0 ? 'text-terra' : 'text-ink-muted'}
+                    style={game.streak > 0 ? { filter: `drop-shadow(0 0 ${Math.min(game.streak, 8)}px rgba(200,90,40,0.55))` } : undefined}
+                  />
+                  <span className="font-display text-base font-semibold leading-none">{game.streak}</span>
+                </span>
+                <span className="w-px h-6 bg-cream-dark"/>
+                <span className="text-left leading-none">
+                  <span className="block font-display text-sm font-semibold">Lv {lvl.level}</span>
+                  <span className="block text-[10px] uppercase tracking-wider text-ink-muted mt-0.5">{game.xp} XP</span>
+                </span>
+              </button>
+              <div className="bg-card rounded-full px-5 py-3 border border-cream-dark flex items-center gap-3 shadow-sm lull-clock">
                 <Clock size={16} className="text-terra" strokeWidth={1.8}/>
                 <div className="text-right">
                   <div className="font-display text-lg leading-none font-medium">{ukNow}</div>
@@ -1115,6 +1380,23 @@ export default function App() {
               What do you want to remember?
             </h2>
           </div>
+
+          {dueToday > 0 && (
+            <div className="mb-10 animate-fade-up" style={{ animationDelay: '0.15s' }}>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs uppercase tracking-wider text-ink-muted">Today's progress</span>
+                <span className="text-xs font-medium text-ink">
+                  {doneToday} of {dueToday} done{progressPct === 100 ? ' · all clear! ✨' : ''}
+                </span>
+              </div>
+              <div className="h-3 rounded-full bg-cream-dark overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-terra transition-all duration-700 ease-out"
+                  style={{ width: `${progressPct}%` }}
+                />
+              </div>
+            </div>
+          )}
 
           <div className="flex flex-wrap items-center gap-3 mb-12 sm:mb-16 animate-fade-up lull-actions" style={{ animationDelay: '0.2s' }}>
             <button
@@ -1181,13 +1463,23 @@ export default function App() {
                       <div className="bg-terra-light text-terra-dark text-xs font-medium px-3 py-1.5 rounded-full inline-block mb-2">
                         {fmtCountdown(r.triggerAt)}
                       </div>
-                      <button
-                        onClick={() => deleteReminder(r.id)}
-                        className="block ml-auto text-ink-muted hover:text-terra transition-colors p-1"
-                        aria-label="Delete reminder"
-                      >
-                        <Trash2 size={14} strokeWidth={1.8}/>
-                      </button>
+                      <div className="flex items-center gap-1 justify-end">
+                        <button
+                          onClick={() => completeReminder(r.id)}
+                          className="inline-flex items-center gap-1 text-xs font-medium text-terra hover:text-terra-dark border border-terra-light hover:border-terra rounded-full px-2.5 py-1 transition-colors"
+                          aria-label="Mark done"
+                          title="Mark done (+XP)"
+                        >
+                          <Sparkles size={12} strokeWidth={2}/> Done
+                        </button>
+                        <button
+                          onClick={() => deleteReminder(r.id)}
+                          className="text-ink-muted hover:text-terra transition-colors p-1"
+                          aria-label="Delete reminder"
+                        >
+                          <Trash2 size={14} strokeWidth={1.8}/>
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </article>
@@ -1390,6 +1682,105 @@ export default function App() {
         )}
 
         {/* ============ SETTINGS MODAL ============ */}
+        {showStats && (() => {
+          const total = game.completedTotal + game.missedTotal;
+          const rate = total > 0 ? Math.round((game.completedTotal / total) * 100) : 0;
+          // last 7 days for the mini bar chart
+          const days = Array.from({ length: 7 }, (_, k) => {
+            const key = dayKey(now - (6 - k) * 86400000);
+            const s = game.history[key] || { completed: 0, missed: 0 };
+            const label = new Date(now - (6 - k) * 86400000).toLocaleDateString('en-GB', { weekday: 'narrow' });
+            return { key, label, ...s };
+          });
+          const maxDay = Math.max(1, ...days.map(d => d.completed));
+          return (
+            <div className="fixed inset-0 z-40 flex items-center justify-center p-4 animate-fade-in lull-modal-overlay" style={{ background: 'rgba(31, 36, 33, 0.5)', backdropFilter: 'blur(8px)' }}>
+              <div className="bg-cream rounded-3xl max-w-lg w-full p-8 sm:p-10 max-h-[92vh] overflow-y-auto animate-slide-down border border-cream-dark lull-modal" style={{ boxShadow: '0 30px 80px -20px rgba(31, 36, 33, 0.4)' }}>
+                <div className="flex items-start justify-between mb-8">
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.25em] text-ink-muted mb-2">Your progress</p>
+                    <h2 className="font-display text-4xl font-light text-ink">Stats & <span className="italic text-terra">streaks</span></h2>
+                  </div>
+                  <button onClick={() => setShowStats(false)} className="text-ink-muted hover:text-ink transition-colors p-2">
+                    <X size={22}/>
+                  </button>
+                </div>
+
+                {/* level + xp */}
+                <div className="bg-card rounded-2xl border border-cream-dark p-5 mb-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="font-display text-lg font-medium">Level {lvl.level}</span>
+                    <span className="text-xs text-ink-muted">{game.xp} XP total</span>
+                  </div>
+                  <div className="h-2.5 rounded-full bg-cream-dark overflow-hidden">
+                    <div className="h-full bg-terra rounded-full" style={{ width: `${Math.round((lvl.into / lvl.span) * 100)}%` }}/>
+                  </div>
+                  <div className="text-[11px] text-ink-muted mt-1.5">{lvl.span - lvl.into} XP to level {lvl.level + 1}</div>
+                </div>
+
+                {/* headline numbers */}
+                <div className="grid grid-cols-3 gap-3 mb-4">
+                  <div className="bg-card rounded-2xl border border-cream-dark p-4 text-center">
+                    <Flame size={18} className="text-terra mx-auto mb-1" strokeWidth={1.8}/>
+                    <div className="font-display text-2xl font-medium">{game.streak}</div>
+                    <div className="text-[10px] uppercase tracking-wider text-ink-muted">Streak</div>
+                  </div>
+                  <div className="bg-card rounded-2xl border border-cream-dark p-4 text-center">
+                    <Sparkles size={18} className="text-terra mx-auto mb-1" strokeWidth={1.8}/>
+                    <div className="font-display text-2xl font-medium">{game.completedTotal}</div>
+                    <div className="text-[10px] uppercase tracking-wider text-ink-muted">Done</div>
+                  </div>
+                  <div className="bg-card rounded-2xl border border-cream-dark p-4 text-center">
+                    <TrendingUp size={18} className="text-terra mx-auto mb-1" strokeWidth={1.8}/>
+                    <div className="font-display text-2xl font-medium">{rate}%</div>
+                    <div className="text-[10px] uppercase tracking-wider text-ink-muted">On-rate</div>
+                  </div>
+                </div>
+
+                {/* 7-day chart */}
+                <div className="bg-card rounded-2xl border border-cream-dark p-5 mb-4">
+                  <div className="flex items-center gap-2 mb-4">
+                    <BarChart3 size={16} className="text-terra" strokeWidth={1.8}/>
+                    <span className="text-xs uppercase tracking-wider text-ink-muted">Last 7 days</span>
+                  </div>
+                  <div className="flex items-end justify-between gap-2 h-24">
+                    {days.map(d => (
+                      <div key={d.key} className="flex-1 flex flex-col items-center gap-1">
+                        <div className="w-full flex items-end justify-center" style={{ height: '72px' }}>
+                          <div className="w-full max-w-[22px] rounded-t-md bg-terra transition-all"
+                               style={{ height: `${(d.completed / maxDay) * 100}%`, minHeight: d.completed ? 4 : 0 }}
+                               title={`${d.completed} done`}/>
+                        </div>
+                        <span className="text-[10px] text-ink-muted">{d.label}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="text-[11px] text-ink-muted mt-3">Best streak: {game.bestStreak} days · Missed: {game.missedTotal}</div>
+                </div>
+
+                {/* achievements */}
+                <div className="mb-2">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Trophy size={16} className="text-terra" strokeWidth={1.8}/>
+                    <span className="text-xs uppercase tracking-wider text-ink-muted">Achievements ({game.achievements.length}/{ACHIEVEMENTS.length})</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    {ACHIEVEMENTS.map(a => {
+                      const got = game.achievements.includes(a.id);
+                      return (
+                        <div key={a.id} className={`rounded-2xl border p-3 ${got ? 'bg-terra-light border-terra' : 'bg-card border-cream-dark opacity-60'}`}>
+                          <div className={`font-medium text-sm ${got ? 'text-terra-dark' : 'text-ink-muted'}`}>{got ? a.label : '🔒 ' + a.label}</div>
+                          <div className="text-[11px] text-ink-muted mt-0.5">{a.desc}</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
         {showSettings && (
           <div className="fixed inset-0 z-40 flex items-center justify-center p-4 animate-fade-in lull-modal-overlay" style={{ background: 'rgba(31, 36, 33, 0.5)', backdropFilter: 'blur(8px)' }}>
             <div className="bg-cream rounded-3xl max-w-lg w-full p-8 sm:p-10 max-h-[92vh] overflow-y-auto animate-slide-down border border-cream-dark lull-modal" style={{ boxShadow: '0 30px 80px -20px rgba(31, 36, 33, 0.4)' }}>
@@ -1604,6 +1995,44 @@ export default function App() {
                   </button>
                 </div>
                 )}
+
+                {/* Custom reward / goal */}
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <Target size={15} className="text-terra" strokeWidth={2}/>
+                    <label className="text-xs uppercase tracking-wider text-ink-muted">Your reward goal</label>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 mb-2">
+                    <select
+                      value={game.reward?.goalType || 'completions'}
+                      onChange={e => setGame(g => ({ ...g, reward: { goalType: e.target.value as 'completions' | 'streak', goal: g.reward?.goal || 10, text: g.reward?.text || '', claimed: false } }))}
+                      className="bg-card border border-cream-dark rounded-2xl px-4 py-3 text-ink focus:outline-none focus:border-terra transition-colors"
+                    >
+                      <option value="completions">Reminders done</option>
+                      <option value="streak">Day streak</option>
+                    </select>
+                    <input
+                      type="number" min={1}
+                      value={game.reward?.goal || 10}
+                      onChange={e => setGame(g => ({ ...g, reward: { goalType: g.reward?.goalType || 'completions', goal: Math.max(1, parseInt(e.target.value) || 1), text: g.reward?.text || '', claimed: false } }))}
+                      className="bg-card border border-cream-dark rounded-2xl px-4 py-3 text-ink focus:outline-none focus:border-terra transition-colors"
+                      placeholder="Goal"
+                    />
+                  </div>
+                  <input
+                    value={game.reward?.text || ''}
+                    onChange={e => setGame(g => ({ ...g, reward: { goalType: g.reward?.goalType || 'completions', goal: g.reward?.goal || 10, text: e.target.value, claimed: false } }))}
+                    placeholder="Reward — e.g. 'Order my favourite takeaway'"
+                    className="w-full bg-card border border-cream-dark rounded-2xl px-5 py-3.5 text-ink focus:outline-none focus:border-terra transition-colors"
+                  />
+                  <p className="text-xs text-ink-muted mt-2">
+                    {game.reward
+                      ? (game.reward.claimed
+                          ? 'Reward claimed 🎉 — set a new goal to keep going.'
+                          : `Progress: ${game.reward.goalType === 'completions' ? game.completedTotal : game.bestStreak} / ${game.reward.goal}`)
+                      : 'Set a goal and a treat for yourself — Lull celebrates when you hit it.'}
+                  </p>
+                </div>
 
                 {/* Logout */}
                 <button
