@@ -7,7 +7,7 @@ import {
 } from 'firebase/auth';
 import {
   doc, getDoc, setDoc, deleteDoc, collection, getDocs, query, where, limit,
-  onSnapshot, updateDoc, addDoc,
+  onSnapshot, updateDoc, addDoc, writeBatch,
 } from 'firebase/firestore';
 import { auth, db } from './firebase';
 
@@ -160,14 +160,24 @@ export async function listIncomingRequests(uid: string): Promise<FriendRequest[]
 }
 
 export async function acceptFriendRequest(me: CloudProfile, from: FriendRequest): Promise<void> {
-  // write the friendship on both sides, then clear the request
-  await setDoc(doc(db, 'users', me.uid, 'friends', from.fromUid), {
-    uid: from.fromUid, username: from.fromUsername, displayName: from.fromName,
-  });
-  await setDoc(doc(db, 'users', from.fromUid, 'friends', me.uid), {
-    uid: me.uid, username: me.username, displayName: me.displayName,
-  });
-  await deleteDoc(doc(db, 'users', me.uid, 'requests', from.fromUid));
+  // Both friendship edges + the request removal in ONE atomic batch, so a
+  // friendship can never end up one-sided (it either fully commits or not).
+  const batch = writeBatch(db);
+  batch.set(doc(db, 'users', me.uid, 'friends', from.fromUid), { uid: from.fromUid, username: from.fromUsername, displayName: from.fromName });
+  batch.set(doc(db, 'users', from.fromUid, 'friends', me.uid), { uid: me.uid, username: me.username, displayName: me.displayName });
+  batch.delete(doc(db, 'users', me.uid, 'requests', from.fromUid));
+  await batch.commit();
+}
+
+// Self-heal: guarantee every friend also has ME in their friends list. Fixes any
+// one-sided friendships left over from earlier, and makes it truly two-way.
+export async function ensureMutual(me: CloudProfile, friends: Friend[]): Promise<void> {
+  if (!friends.length) return;
+  const batch = writeBatch(db);
+  for (const f of friends) {
+    batch.set(doc(db, 'users', f.uid, 'friends', me.uid), { uid: me.uid, username: me.username, displayName: me.displayName }, { merge: true });
+  }
+  await batch.commit();
 }
 
 export async function declineFriendRequest(myUid: string, fromUid: string): Promise<void> {
@@ -189,8 +199,10 @@ export async function listFriends(uid: string): Promise<Friend[]> {
 }
 
 export async function removeFriend(myUid: string, friendUid: string): Promise<void> {
-  await deleteDoc(doc(db, 'users', myUid, 'friends', friendUid));
-  await deleteDoc(doc(db, 'users', friendUid, 'friends', myUid));
+  const batch = writeBatch(db);
+  batch.delete(doc(db, 'users', myUid, 'friends', friendUid));
+  batch.delete(doc(db, 'users', friendUid, 'friends', myUid));
+  await batch.commit();
 }
 
 // Live friends list (updates on both devices the moment a request is accepted).

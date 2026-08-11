@@ -1062,8 +1062,13 @@ function FriendsPanel({ localUsername, settings, game, reminders, onOpenSpace, o
   // live subscriptions: friends, requests, shared spaces — keep both devices in sync
   useEffect(() => {
     if (!me) { setSpaces([]); setFriends([]); setRequests([]); return; }
+    let healed = false;
     const offS = social.watchSpaces(me.uid, setSpaces);
-    const offF = social.watchFriends(me.uid, setFriends);
+    const offF = social.watchFriends(me.uid, list => {
+      setFriends(list);
+      // guarantee two-way: make sure each friend also has me (once per session)
+      if (!healed && list.length) { healed = true; social.ensureMutual(me, list).catch(() => {}); }
+    });
     const offR = social.watchRequests(me.uid, setRequests);
     return () => { offS(); offF(); offR(); };
   }, [me]);
