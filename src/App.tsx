@@ -893,31 +893,78 @@ function SharedNotepad({ space, theme, onClose }: {
   const dot = theme === 'dark' ? 'rgba(255,255,255,0.30)' : 'rgba(31,36,33,0.22)';
   const bg = theme === 'dark' ? '#1B1712' : '#F3EBDD';
 
+  const [view, setViewState] = useState({ scale: 1, tx: 0, ty: 0 });
+  const viewRef = useRef(view);
+  const setView = (v: { scale: number; tx: number; ty: number }) => { viewRef.current = v; setViewState(v); };
+  const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
+  const pointers = useRef<Map<number, { x: number; y: number }>>(new Map());
+  const gesture = useRef<any>(null);
+
   useEffect(() => {
     const off = social.watchSpaceNotes(space.id, setNotes);
     return () => off();
   }, [space.id]);
 
-  const frac = (cx: number, cy: number) => {
+  const canvasXY = (clientX: number, clientY: number) => {
     const r = canvasRef.current?.getBoundingClientRect();
-    return { x: Math.min(0.95, Math.max(0.04, (cx - (r?.left || 0)) / (r?.width || 1))), y: Math.min(0.95, Math.max(0.05, (cy - (r?.top || 0)) / (r?.height || 1))) };
+    return { sx: clientX - (r?.left || 0), sy: clientY - (r?.top || 0), w: r?.width || 1, h: r?.height || 1 };
   };
-  const onCanvasClick = (e: React.MouseEvent) => {
-    if (e.target !== canvasRef.current) return;
-    const { x, y } = frac(e.clientX, e.clientY);
+  const worldFrac = (clientX: number, clientY: number) => {
+    const { sx, sy, w, h } = canvasXY(clientX, clientY);
+    const v = viewRef.current;
+    return { x: (sx - v.tx) / (w * v.scale), y: (sy - v.ty) / (h * v.scale) };
+  };
+  const zoomAround = (sx: number, sy: number, factor: number) => {
+    const v = viewRef.current;
+    const ns = clamp(v.scale * factor, 0.35, 3.5);
+    const k = ns / v.scale;
+    setView({ scale: ns, tx: sx - (sx - v.tx) * k, ty: sy - (sy - v.ty) * k });
+  };
+  const zoomButton = (factor: number) => { const r = canvasRef.current?.getBoundingClientRect(); zoomAround((r?.width || 0) / 2, (r?.height || 0) / 2, factor); };
+  const onWheel = (e: React.WheelEvent) => { const { sx, sy } = canvasXY(e.clientX, e.clientY); zoomAround(sx, sy, e.deltaY < 0 ? 1.12 : 1 / 1.12); };
+
+  const addNote = (fx: number, fy: number) => {
     const id = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-    social.setSpaceNote(space.id, { id, x, y, text: '', colors: [NOTE_PALETTE[notes.length % NOTE_PALETTE.length]] }).catch(() => {});
+    social.setSpaceNote(space.id, { id, x: fx, y: fy, text: '', colors: [NOTE_PALETTE[notes.length % NOTE_PALETTE.length]] }).catch(() => {});
+  };
+
+  const onPointerDown = (e: React.PointerEvent) => {
+    pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    const v = viewRef.current;
+    if (pointers.current.size === 2) {
+      const [p, q] = [...pointers.current.values()];
+      const { sx, sy } = canvasXY((p.x + q.x) / 2, (p.y + q.y) / 2);
+      gesture.current = { mode: 'pinch', startDist: Math.hypot(p.x - q.x, p.y - q.y), startScale: v.scale, startTx: v.tx, startTy: v.ty, midX: sx, midY: sy };
+    } else {
+      gesture.current = { mode: 'tap', sx: e.clientX, sy: e.clientY, startTx: v.tx, startTy: v.ty, moved: false };
+    }
   };
   const onPointerMove = (e: React.PointerEvent) => {
-    if (!dragRef.current) return;
-    const id = dragRef.current.id;
-    const { x, y } = frac(e.clientX, e.clientY);
-    setNotes(ns => ns.map(n => (n.id === id ? { ...n, x, y } : n)));
+    if (dragRef.current) { const id = dragRef.current.id; const f = worldFrac(e.clientX, e.clientY); setNotes(ns => ns.map(n => (n.id === id ? { ...n, x: f.x, y: f.y } : n))); return; }
+    if (pointers.current.has(e.pointerId)) pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    const g = gesture.current;
+    if (!g) return;
+    const v = viewRef.current;
+    if (g.mode === 'pinch' && pointers.current.size >= 2) {
+      const [p, q] = [...pointers.current.values()];
+      const dist = Math.hypot(p.x - q.x, p.y - q.y);
+      const ns = clamp(g.startScale * (dist / g.startDist), 0.35, 3.5);
+      const k = ns / g.startScale;
+      setView({ scale: ns, tx: g.midX - (g.midX - g.startTx) * k, ty: g.midY - (g.midY - g.startTy) * k });
+    } else if (g.mode === 'tap' || g.mode === 'pan') {
+      const dx = e.clientX - g.sx, dy = e.clientY - g.sy;
+      if (!g.moved && Math.hypot(dx, dy) > 6) { g.moved = true; g.mode = 'pan'; }
+      if (g.mode === 'pan') setView({ scale: v.scale, tx: g.startTx + dx, ty: g.startTy + dy });
+    }
   };
-  const endDrag = () => {
-    const d = dragRef.current; dragRef.current = null;
-    if (d) { const n = notes.find(x => x.id === d.id); if (n) social.setSpaceNote(space.id, n).catch(() => {}); }
+  const onPointerUp = (e: React.PointerEvent) => {
+    pointers.current.delete(e.pointerId);
+    if (dragRef.current) { const d = dragRef.current; dragRef.current = null; const n = notes.find(x => x.id === d.id); if (n) social.setSpaceNote(space.id, n).catch(() => {}); return; }
+    const g = gesture.current;
+    if (g && g.mode === 'tap' && !g.moved) { const f = worldFrac(g.sx, g.sy); addNote(f.x, f.y); }
+    if (pointers.current.size === 0) gesture.current = null;
   };
+
   const setColor = (id: string, color: string) => {
     setNotes(ns => ns.map(n => (n.id === id ? { ...n, colors: [color] } : n)));
     const n = notes.find(x => x.id === id); if (n) social.setSpaceNote(space.id, { ...n, colors: [color] }).catch(() => {});
@@ -933,42 +980,53 @@ function SharedNotepad({ space, theme, onClose }: {
     <div className="fixed inset-0 z-40 animate-fade-in">
       <div
         ref={canvasRef}
-        onClick={onCanvasClick}
+        onWheel={onWheel}
+        onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
-        onPointerUp={endDrag}
-        onPointerLeave={endDrag}
+        onPointerUp={onPointerUp}
+        onPointerCancel={onPointerUp}
         className="absolute inset-0 overflow-hidden"
-        style={{ backgroundColor: bg, backgroundImage: `radial-gradient(${dot} 1.3px, transparent 1.4px)`, backgroundSize: '26px 26px', touchAction: 'none', cursor: 'crosshair' }}
+        style={{ backgroundColor: bg, backgroundImage: `radial-gradient(${dot} 1.3px, transparent 1.4px)`, backgroundSize: '26px 26px', touchAction: 'none', cursor: gesture.current?.mode === 'pan' ? 'grabbing' : 'crosshair' }}
       >
-        <svg className="absolute inset-0 w-full h-full pointer-events-none" preserveAspectRatio="none" viewBox="0 0 100 100">
-          {edges.map(([a, b], k) => (<line key={k} x1={notes[a].x * 100} y1={notes[a].y * 100} x2={notes[b].x * 100} y2={notes[b].y * 100} stroke="rgba(130,130,130,0.6)" strokeWidth={1.2} strokeLinecap="round" vectorEffect="non-scaling-stroke" />))}
-        </svg>
+        <div className="absolute top-0 left-0 w-full h-full" style={{ transform: `translate(${view.tx}px, ${view.ty}px) scale(${view.scale})`, transformOrigin: '0 0' }}>
+          <svg className="absolute inset-0 w-full h-full pointer-events-none" preserveAspectRatio="none" viewBox="0 0 100 100">
+            {edges.map(([a, b], k) => (<line key={k} x1={notes[a].x * 100} y1={notes[a].y * 100} x2={notes[b].x * 100} y2={notes[b].y * 100} stroke="rgba(130,130,130,0.6)" strokeWidth={1.2} strokeLinecap="round" vectorEffect="non-scaling-stroke" />))}
+          </svg>
+          {notes.map(n => (
+            <div key={n.id} className="absolute" style={{ left: `${n.x * 100}%`, top: `${n.y * 100}%`, transform: 'translate(-50%,-50%)', width: 200 }} onClick={e => e.stopPropagation()} onPointerDown={e => e.stopPropagation()}>
+              <div className="rounded-2xl shadow-lg overflow-hidden border border-black/10" style={{ background: gradientCss(n.colors) }}>
+                <div className="flex items-center justify-between px-2 py-1.5 cursor-move select-none" onPointerDown={e => { e.stopPropagation(); dragRef.current = { id: n.id }; }}>
+                  <button onClick={e => { e.stopPropagation(); setEditing(editing === n.id ? null : n.id); }} className="w-7 h-7 rounded-full bg-white/85 flex items-center justify-center text-ink hover:bg-white transition-colors" aria-label="Colour"><Pencil size={13} strokeWidth={2} /></button>
+                  <button onClick={e => { e.stopPropagation(); removeNote(n.id); }} className="w-7 h-7 rounded-full bg-white/60 flex items-center justify-center text-ink hover:bg-white transition-colors" aria-label="Delete"><X size={13} strokeWidth={2} /></button>
+                </div>
+                <textarea value={n.text} onChange={e => setText(n.id, e.target.value)} onBlur={() => commitText(n.id)} onClick={e => e.stopPropagation()} onPointerDown={e => e.stopPropagation()} placeholder="Write…" className="w-full h-28 resize-none bg-white/85 text-ink text-sm p-2.5 focus:outline-none" />
+              </div>
+              {editing === n.id && (
+                <div className="mt-2 bg-cream border border-cream-dark rounded-2xl p-3 shadow-xl" onClick={e => e.stopPropagation()} onPointerDown={e => e.stopPropagation()}>
+                  <div className="text-[10px] uppercase tracking-wider text-ink-muted mb-2">Note colour</div>
+                  <input type="color" value={n.colors[0] || '#C8553D'} onChange={e => setColor(n.id, e.target.value)} className="w-full h-10 rounded-lg border border-cream-dark bg-transparent cursor-pointer p-0" />
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+
         {notes.length === 0 && (
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none text-center px-8">
             <div><Sparkles size={28} className="text-terra mx-auto mb-3" strokeWidth={1.5} /><p className="font-display text-2xl italic text-ink-muted">A shared sky with {space.withName}</p><p className="text-sm text-ink-muted mt-2">Tap anywhere — you'll both see it live</p></div>
           </div>
         )}
-        {notes.map(n => (
-          <div key={n.id} className="absolute" style={{ left: `${n.x * 100}%`, top: `${n.y * 100}%`, transform: 'translate(-50%,-50%)', width: 200 }} onClick={e => e.stopPropagation()} onPointerDown={e => e.stopPropagation()}>
-            <div className="rounded-2xl shadow-lg overflow-hidden border border-black/10" style={{ background: gradientCss(n.colors) }}>
-              <div className="flex items-center justify-between px-2 py-1.5 cursor-move select-none" onPointerDown={e => { e.stopPropagation(); dragRef.current = { id: n.id }; }}>
-                <button onClick={e => { e.stopPropagation(); setEditing(editing === n.id ? null : n.id); }} className="w-7 h-7 rounded-full bg-white/85 flex items-center justify-center text-ink hover:bg-white transition-colors" aria-label="Colour"><Pencil size={13} strokeWidth={2} /></button>
-                <button onClick={e => { e.stopPropagation(); removeNote(n.id); }} className="w-7 h-7 rounded-full bg-white/60 flex items-center justify-center text-ink hover:bg-white transition-colors" aria-label="Delete"><X size={13} strokeWidth={2} /></button>
-              </div>
-              <textarea value={n.text} onChange={e => setText(n.id, e.target.value)} onBlur={() => commitText(n.id)} onClick={e => e.stopPropagation()} onPointerDown={e => e.stopPropagation()} placeholder="Write…" className="w-full h-28 resize-none bg-white/85 text-ink text-sm p-2.5 focus:outline-none" />
-            </div>
-            {editing === n.id && (
-              <div className="mt-2 bg-cream border border-cream-dark rounded-2xl p-3 shadow-xl" onClick={e => e.stopPropagation()} onPointerDown={e => e.stopPropagation()}>
-                <div className="text-[10px] uppercase tracking-wider text-ink-muted mb-2">Note colour</div>
-                <input type="color" value={n.colors[0] || '#C8553D'} onChange={e => setColor(n.id, e.target.value)} className="w-full h-10 rounded-lg border border-cream-dark bg-transparent cursor-pointer p-0" />
-              </div>
-            )}
-          </div>
-        ))}
       </div>
+
       <div className="absolute top-5 right-5 flex items-center gap-3" style={{ marginTop: 'env(safe-area-inset-top)' }}>
         <span className="hidden sm:flex items-center gap-2 bg-card/80 backdrop-blur border border-cream-dark rounded-full px-4 py-2 text-sm text-ink"><Users size={15} className="text-terra" strokeWidth={2} /> Shared with {space.withName}</span>
         <button onClick={onClose} className="w-11 h-11 rounded-full bg-card border border-cream-dark shadow-lg flex items-center justify-center text-ink-muted hover:text-terra hover:border-terra transition-colors" aria-label="Close"><X size={20} /></button>
+      </div>
+
+      <div className="absolute bottom-6 right-5 flex flex-col items-center gap-2" style={{ marginBottom: 'env(safe-area-inset-bottom)' }}>
+        <button onClick={() => zoomButton(1.2)} className="w-11 h-11 rounded-full bg-card border border-cream-dark shadow-lg flex items-center justify-center text-ink hover:text-terra hover:border-terra transition-colors" aria-label="Zoom in"><ZoomIn size={18} strokeWidth={2} /></button>
+        <button onClick={() => setView({ scale: 1, tx: 0, ty: 0 })} className="w-11 h-11 rounded-full bg-card border border-cream-dark shadow-lg flex items-center justify-center text-ink-muted hover:text-terra hover:border-terra transition-colors text-[10px] font-semibold" aria-label="Reset zoom">{Math.round(view.scale * 100)}%</button>
+        <button onClick={() => zoomButton(1 / 1.2)} className="w-11 h-11 rounded-full bg-card border border-cream-dark shadow-lg flex items-center justify-center text-ink hover:text-terra hover:border-terra transition-colors" aria-label="Zoom out"><ZoomOut size={18} strokeWidth={2} /></button>
       </div>
     </div>
   );
