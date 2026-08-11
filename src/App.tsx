@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Plus, X, Image as ImageIcon, Trash2, AlarmClock, Bell, Clock, Settings, LogOut, User, Moon, Sun, Volume2, VolumeX, Eye, EyeOff, Zap, Play, Square, MousePointerClick, Keyboard, Type, Move, Pencil, ChevronLeft, AlertTriangle, Music, Pause, Lock, Flame, Trophy, Target, TrendingUp, Gift, BarChart3, Sparkles, Home, Palette, Upload, ZoomIn, ZoomOut, Users, Search, UserPlus, Check, Mail } from 'lucide-react';
+import { Plus, X, Image as ImageIcon, Trash2, AlarmClock, Bell, Clock, Settings, LogOut, User, Moon, Sun, Volume2, VolumeX, Eye, EyeOff, Zap, Play, Square, MousePointerClick, Keyboard, Type, Move, Pencil, ChevronLeft, AlertTriangle, Music, Pause, Lock, Flame, Trophy, Target, TrendingUp, Gift, BarChart3, Sparkles, Home, Palette, Upload, ZoomIn, ZoomOut, Users, Search, UserPlus, Check } from 'lucide-react';
 import { isNative, requestReminderPermission, syncReminderNotifications } from './notifications';
 import * as social from './social';
 import type { CloudProfile, Friend, FriendRequest } from './social';
@@ -879,12 +879,109 @@ function NotepadPanel({ notes, setNotes, theme, onClose }: {
 }
 
 // ============================================================
+// SHARED NOTEPAD — a constellation co-edited with a friend, live over Firebase.
+// ============================================================
+function SharedNotepad({ space, theme, onClose }: {
+  space: { id: string; withName: string };
+  theme: string;
+  onClose: () => void;
+}) {
+  const canvasRef = useRef<HTMLDivElement>(null);
+  const [notes, setNotes] = useState<social.SpaceNote[]>([]);
+  const [editing, setEditing] = useState<string | null>(null);
+  const dragRef = useRef<{ id: string } | null>(null);
+  const dot = theme === 'dark' ? 'rgba(255,255,255,0.30)' : 'rgba(31,36,33,0.22)';
+  const bg = theme === 'dark' ? '#1B1712' : '#F3EBDD';
+
+  useEffect(() => {
+    const off = social.watchSpaceNotes(space.id, setNotes);
+    return () => off();
+  }, [space.id]);
+
+  const frac = (cx: number, cy: number) => {
+    const r = canvasRef.current?.getBoundingClientRect();
+    return { x: Math.min(0.95, Math.max(0.04, (cx - (r?.left || 0)) / (r?.width || 1))), y: Math.min(0.95, Math.max(0.05, (cy - (r?.top || 0)) / (r?.height || 1))) };
+  };
+  const onCanvasClick = (e: React.MouseEvent) => {
+    if (e.target !== canvasRef.current) return;
+    const { x, y } = frac(e.clientX, e.clientY);
+    const id = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    social.setSpaceNote(space.id, { id, x, y, text: '', colors: [NOTE_PALETTE[notes.length % NOTE_PALETTE.length]] }).catch(() => {});
+  };
+  const onPointerMove = (e: React.PointerEvent) => {
+    if (!dragRef.current) return;
+    const { x, y } = frac(e.clientX, e.clientY);
+    setNotes(ns => ns.map(n => (n.id === dragRef.current!.id ? { ...n, x, y } : n)));
+  };
+  const endDrag = () => {
+    const d = dragRef.current; dragRef.current = null;
+    if (d) { const n = notes.find(x => x.id === d.id); if (n) social.setSpaceNote(space.id, n).catch(() => {}); }
+  };
+  const setColor = (id: string, color: string) => {
+    setNotes(ns => ns.map(n => (n.id === id ? { ...n, colors: [color] } : n)));
+    const n = notes.find(x => x.id === id); if (n) social.setSpaceNote(space.id, { ...n, colors: [color] }).catch(() => {});
+  };
+  const setText = (id: string, text: string) => setNotes(ns => ns.map(n => (n.id === id ? { ...n, text } : n)));
+  const commitText = (id: string) => { const n = notes.find(x => x.id === id); if (n) social.setSpaceNote(space.id, n).catch(() => {}); };
+  const removeNote = (id: string) => { social.deleteSpaceNote(space.id, id).catch(() => {}); if (editing === id) setEditing(null); };
+
+  const edges: number[][] = [];
+  for (let i = 0; i < notes.length; i++) for (let j = i + 1; j < notes.length; j++) edges.push([i, j]);
+
+  return (
+    <div className="fixed inset-0 z-40 animate-fade-in">
+      <div
+        ref={canvasRef}
+        onClick={onCanvasClick}
+        onPointerMove={onPointerMove}
+        onPointerUp={endDrag}
+        onPointerLeave={endDrag}
+        className="absolute inset-0 overflow-hidden"
+        style={{ backgroundColor: bg, backgroundImage: `radial-gradient(${dot} 1.3px, transparent 1.4px)`, backgroundSize: '26px 26px', touchAction: 'none', cursor: 'crosshair' }}
+      >
+        <svg className="absolute inset-0 w-full h-full pointer-events-none" preserveAspectRatio="none" viewBox="0 0 100 100">
+          {edges.map(([a, b], k) => (<line key={k} x1={notes[a].x * 100} y1={notes[a].y * 100} x2={notes[b].x * 100} y2={notes[b].y * 100} stroke="rgba(130,130,130,0.6)" strokeWidth={1.2} strokeLinecap="round" vectorEffect="non-scaling-stroke" />))}
+        </svg>
+        {notes.length === 0 && (
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none text-center px-8">
+            <div><Sparkles size={28} className="text-terra mx-auto mb-3" strokeWidth={1.5} /><p className="font-display text-2xl italic text-ink-muted">A shared sky with {space.withName}</p><p className="text-sm text-ink-muted mt-2">Tap anywhere — you'll both see it live</p></div>
+          </div>
+        )}
+        {notes.map(n => (
+          <div key={n.id} className="absolute" style={{ left: `${n.x * 100}%`, top: `${n.y * 100}%`, transform: 'translate(-50%,-50%)', width: 200 }} onClick={e => e.stopPropagation()} onPointerDown={e => e.stopPropagation()}>
+            <div className="rounded-2xl shadow-lg overflow-hidden border border-black/10" style={{ background: gradientCss(n.colors) }}>
+              <div className="flex items-center justify-between px-2 py-1.5 cursor-move select-none" onPointerDown={e => { e.stopPropagation(); dragRef.current = { id: n.id }; }}>
+                <button onClick={e => { e.stopPropagation(); setEditing(editing === n.id ? null : n.id); }} className="w-7 h-7 rounded-full bg-white/85 flex items-center justify-center text-ink hover:bg-white transition-colors" aria-label="Colour"><Pencil size={13} strokeWidth={2} /></button>
+                <button onClick={e => { e.stopPropagation(); removeNote(n.id); }} className="w-7 h-7 rounded-full bg-white/60 flex items-center justify-center text-ink hover:bg-white transition-colors" aria-label="Delete"><X size={13} strokeWidth={2} /></button>
+              </div>
+              <textarea value={n.text} onChange={e => setText(n.id, e.target.value)} onBlur={() => commitText(n.id)} onClick={e => e.stopPropagation()} onPointerDown={e => e.stopPropagation()} placeholder="Write…" className="w-full h-28 resize-none bg-white/85 text-ink text-sm p-2.5 focus:outline-none" />
+            </div>
+            {editing === n.id && (
+              <div className="mt-2 bg-cream border border-cream-dark rounded-2xl p-3 shadow-xl" onClick={e => e.stopPropagation()} onPointerDown={e => e.stopPropagation()}>
+                <div className="text-[10px] uppercase tracking-wider text-ink-muted mb-2">Note colour</div>
+                <input type="color" value={n.colors[0] || '#C8553D'} onChange={e => setColor(n.id, e.target.value)} className="w-full h-10 rounded-lg border border-cream-dark bg-transparent cursor-pointer p-0" />
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+      <div className="absolute top-5 right-5 flex items-center gap-3" style={{ marginTop: 'env(safe-area-inset-top)' }}>
+        <span className="hidden sm:flex items-center gap-2 bg-card/80 backdrop-blur border border-cream-dark rounded-full px-4 py-2 text-sm text-ink"><Users size={15} className="text-terra" strokeWidth={2} /> Shared with {space.withName}</span>
+        <button onClick={onClose} className="w-11 h-11 rounded-full bg-card border border-cream-dark shadow-lg flex items-center justify-center text-ink-muted hover:text-terra hover:border-terra transition-colors" aria-label="Close"><X size={20} /></button>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
 // FRIENDS — optional cloud account, user search, requests, list.
 // Backed by src/social.ts (Firebase). Fully separate from local login.
 // ============================================================
-function FriendsPanel({ localUsername, settings, onClose }: {
+function FriendsPanel({ localUsername, settings, game, onOpenSpace, onClose }: {
   localUsername: string;
   settings: UserSettings;
+  game: GameState;
+  onOpenSpace: (id: string, withName: string) => void;
   onClose: () => void;
 }) {
   const fInput = 'w-full bg-card border border-cream-dark rounded-2xl px-4 py-3 text-ink focus:outline-none focus:border-terra transition-colors';
@@ -896,15 +993,19 @@ function FriendsPanel({ localUsername, settings, onClose }: {
   const [handle, setHandle] = useState(localUsername);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const [tab, setTab] = useState<'friends' | 'requests' | 'find'>('friends');
+  const [tab, setTab] = useState<'friends' | 'requests' | 'find' | 'board'>('friends');
   const [term, setTerm] = useState('');
   const [results, setResults] = useState<CloudProfile[]>([]);
   const [searching, setSearching] = useState(false);
   const [sentTo, setSentTo] = useState<string[]>([]);
   const [requests, setRequests] = useState<FriendRequest[]>([]);
   const [friends, setFriends] = useState<Friend[]>([]);
-  const [verified, setVerified] = useState(true); // friends stay locked until the email is confirmed
-  const [verifyMsg, setVerifyMsg] = useState('');
+  const [spaces, setSpaces] = useState<social.Space[]>([]);
+  const [sharing, setSharing] = useState<Friend | null>(null); // friend we're sharing a reminder with
+  const [srTitle, setSrTitle] = useState('');
+  const [srDate, setSrDate] = useState('');
+  const [srTime, setSrTime] = useState('');
+  const [srRepeat, setSrRepeat] = useState('none');
 
   const profileInput = (): social.ProfileInput => ({
     displayName: settings.displayName || localUsername,
@@ -913,6 +1014,8 @@ function FriendsPanel({ localUsername, settings, onClose }: {
     avatarColor: settings.avatarColor,
     avatarPhoto: settings.avatarPhoto,
     profileVisible: settings.profileVisible,
+    xp: game.xp,
+    streak: game.streak,
   });
   const avatarOf = (p: any): any => ({
     avatarType: p.avatarType || 'monogram', avatarPhoto: p.avatarPhoto || '',
@@ -930,14 +1033,13 @@ function FriendsPanel({ localUsername, settings, onClose }: {
   useEffect(() => {
     const off = social.watchCloudAuth(async (u) => {
       if (u) {
-        setVerified(!!u.emailVerified);
         try {
           let prof = await social.getProfile(u.uid);
           if (!prof) { await social.syncProfile(u.uid, (localUsername || 'user').toLowerCase(), profileInput()); prof = await social.getProfile(u.uid); }
           setMe(prof);
           if (prof) refresh(prof.uid);
         } catch { setMe(null); }
-      } else { setMe(null); setVerified(true); }
+      } else setMe(null);
       setReady(true);
     });
     return () => off();
@@ -947,22 +1049,12 @@ function FriendsPanel({ localUsername, settings, onClose }: {
   const doAuth = async () => {
     setError(''); setBusy(true);
     try {
-      if (mode === 'up') { const prof = await social.cloudSignUp(email, password, handle, profileInput()); setMe(prof); setVerified(social.isVerified()); refresh(prof.uid); }
-      else { const prof = await social.cloudSignIn(email, password); setMe(prof); setVerified(social.isVerified()); if (prof) refresh(prof.uid); }
+      if (mode === 'up') { const prof = await social.cloudSignUp(email, password, handle, profileInput()); setMe(prof); refresh(prof.uid); }
+      else { const prof = await social.cloudSignIn(email, password); setMe(prof); if (prof) refresh(prof.uid); }
     } catch (e: any) { setError(e?.message || 'Something went wrong.'); }
     finally { setBusy(false); }
   };
-  const doSignOut = async () => { try { await social.cloudSignOut(); } catch { /* ignore */ } setMe(null); setVerified(true); setFriends([]); setRequests([]); setResults([]); };
-  const doRefreshVerify = async () => {
-    setVerifyMsg('Checking…');
-    try { const ok = await social.refreshVerified(); setVerified(ok); setVerifyMsg(ok ? '' : 'Not verified yet — open the link in your email, then try again.'); }
-    catch { setVerifyMsg('Could not check just now — try again.'); }
-  };
-  const doResend = async () => {
-    setVerifyMsg('Sending…');
-    try { await social.resendVerification(); setVerifyMsg('Sent! Check your inbox (and spam folder).'); }
-    catch { setVerifyMsg('Could not send right now — try again shortly.'); }
-  };
+  const doSignOut = async () => { try { await social.cloudSignOut(); } catch { /* ignore */ } setMe(null); setFriends([]); setRequests([]); setResults([]); };
   const doSearch = async () => {
     if (!me) return;
     setSearching(true);
@@ -972,6 +1064,41 @@ function FriendsPanel({ localUsername, settings, onClose }: {
   const doAccept = async (r: FriendRequest) => { if (!me) return; try { await social.acceptFriendRequest(me, r); refresh(me.uid); } catch { /* ignore */ } };
   const doDecline = async (r: FriendRequest) => { if (!me) return; try { await social.declineFriendRequest(me.uid, r.fromUid); setRequests(rs => rs.filter(x => x.fromUid !== r.fromUid)); } catch { /* ignore */ } };
   const doRemove = async (f: Friend) => { if (!me) return; try { await social.removeFriend(me.uid, f.uid); setFriends(fs => fs.filter(x => x.uid !== f.uid)); } catch { /* ignore */ } };
+
+  // live list of shared notepad spaces I belong to
+  useEffect(() => {
+    if (!me) { setSpaces([]); return; }
+    const off = social.watchSpaces(me.uid, setSpaces);
+    return () => off();
+  }, [me]);
+
+  // open (or create) the shared notepad with a friend
+  const openNotepad = async (f: Friend) => {
+    if (!me) return;
+    const existing = spaces.find(s => s.members.includes(f.uid));
+    try {
+      const id = existing ? existing.id : await social.createSpace(me, f);
+      onOpenSpace(id, f.displayName);
+    } catch { /* ignore */ }
+  };
+
+  // share-a-reminder flow
+  const openShare = (f: Friend) => {
+    const d = new Date(Date.now() + 60 * 60 * 1000);
+    const p = (n: number) => String(n).padStart(2, '0');
+    setSrTitle(''); setSrRepeat('none');
+    setSrDate(`${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`);
+    setSrTime(`${p(d.getHours())}:${p(d.getMinutes())}`);
+    setSharing(f);
+  };
+  const submitShare = async () => {
+    if (!me || !sharing || !srTitle.trim() || !srDate || !srTime) return;
+    const triggerAt = new Date(`${srDate}T${srTime}:00`).getTime();
+    try { await social.createSharedReminder(me, sharing, { title: srTitle.trim(), description: '', triggerAt, repeat: srRepeat }); setSharing(null); }
+    catch (e: any) { setError(e?.message || 'Could not share.'); }
+  };
+
+  const level = (xp?: number) => levelFromXp(xp || 0).level;
 
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center p-3 sm:p-6">
@@ -995,20 +1122,6 @@ function FriendsPanel({ localUsername, settings, onClose }: {
             </div>
             <button onClick={() => { setMode(mode === 'up' ? 'in' : 'up'); setError(''); }} className="mt-4 text-sm text-terra hover:text-terra-dark transition-colors">{mode === 'up' ? 'Already have a cloud account? Sign in' : 'New here? Create a cloud account'}</button>
           </div>
-        ) : !verified ? (
-          <div className="flex-1 overflow-y-auto p-6 flex flex-col items-center justify-center text-center">
-            <Mail size={40} className="text-terra mb-4" strokeWidth={1.5} />
-            <h3 className="font-display text-2xl text-ink mb-2">Confirm your email</h3>
-            <p className="text-ink-muted text-sm mb-1">We sent a confirmation link to</p>
-            <p className="text-ink font-medium mb-4 break-all">{social.currentEmail()}</p>
-            <p className="text-ink-muted text-sm mb-6 max-w-xs">Open it to prove the email is yours, then tap below. Only confirmed emails can use friends.</p>
-            <div className="w-full max-w-xs space-y-2">
-              <button onClick={doRefreshVerify} className="w-full py-3 rounded-full bg-terra text-cream font-medium hover:bg-terra-dark transition-colors">I've confirmed — continue</button>
-              <button onClick={doResend} className="w-full py-3 rounded-full border border-cream-dark text-ink hover:border-terra hover:text-terra transition-colors font-medium">Resend email</button>
-              <button onClick={doSignOut} className="w-full py-2 text-sm text-ink-muted hover:text-terra transition-colors">Use a different account</button>
-            </div>
-            {verifyMsg && <p className="text-sm text-ink-muted mt-4">{verifyMsg}</p>}
-          </div>
         ) : (
           <div className="flex-1 flex flex-col min-h-0">
             <div className="flex items-center gap-3 px-6 py-3 border-b border-cream-dark">
@@ -1017,8 +1130,8 @@ function FriendsPanel({ localUsername, settings, onClose }: {
               <button onClick={doSignOut} className="text-xs text-ink-muted hover:text-terra transition-colors">Sign out</button>
             </div>
             <div className="flex gap-1 px-4 pt-3">
-              {([['friends', `Friends (${friends.length})`], ['requests', `Requests (${requests.length})`], ['find', 'Find']] as [typeof tab, string][]).map(([k, l]) => (
-                <button key={k} onClick={() => setTab(k)} className={`px-3 py-2 rounded-xl text-sm font-medium transition-colors ${tab === k ? 'bg-terra-light text-terra-dark' : 'text-ink-muted hover:text-ink'}`}>{l}</button>
+              {([['friends', `Friends (${friends.length})`], ['requests', `Requests (${requests.length})`], ['find', 'Find'], ['board', 'Board']] as [typeof tab, string][]).map(([k, l]) => (
+                <button key={k} onClick={() => setTab(k)} className={`px-3 py-2 rounded-xl text-sm font-medium transition-colors whitespace-nowrap ${tab === k ? 'bg-terra-light text-terra-dark' : 'text-ink-muted hover:text-ink'}`}>{l}</button>
               ))}
             </div>
             <div className="flex-1 overflow-y-auto p-4 space-y-2">
@@ -1052,13 +1165,58 @@ function FriendsPanel({ localUsername, settings, onClose }: {
               {tab === 'friends' && (<>
                 {friends.length === 0 && <p className="text-sm text-ink-muted">No friends yet — use Find to add some.</p>}
                 {friends.map(f => (
-                  <div key={f.uid} className="flex items-center gap-3 bg-card border border-cream-dark rounded-2xl p-3">
-                    <Avatar settings={avatarOf(f)} name={f.username} size={38} />
-                    <div className="flex-1 min-w-0"><div className="font-medium text-ink truncate">{f.displayName}</div><div className="text-xs text-ink-muted">@{f.username}</div></div>
-                    <button onClick={() => doRemove(f)} className="text-ink-muted hover:text-terra transition-colors p-1" aria-label="Remove friend"><Trash2 size={15} /></button>
+                  <div key={f.uid} className="bg-card border border-cream-dark rounded-2xl p-3">
+                    <div className="flex items-center gap-3">
+                      <Avatar settings={avatarOf(f)} name={f.username} size={38} />
+                      <div className="flex-1 min-w-0"><div className="font-medium text-ink truncate">{f.displayName}</div><div className="text-xs text-ink-muted">@{f.username}</div></div>
+                      <button onClick={() => doRemove(f)} className="text-ink-muted hover:text-terra transition-colors p-1" aria-label="Remove friend"><Trash2 size={15} /></button>
+                    </div>
+                    <div className="flex gap-2 mt-3">
+                      <button onClick={() => openShare(f)} className="flex-1 flex items-center justify-center gap-1.5 text-sm font-medium text-terra border border-terra-light hover:border-terra rounded-xl py-2 transition-colors"><Bell size={14} strokeWidth={2} /> Share reminder</button>
+                      <button onClick={() => openNotepad(f)} className="flex-1 flex items-center justify-center gap-1.5 text-sm font-medium text-terra border border-terra-light hover:border-terra rounded-xl py-2 transition-colors"><Pencil size={14} strokeWidth={2} /> Notepad</button>
+                    </div>
                   </div>
                 ))}
               </>)}
+              {tab === 'board' && (<>
+                <p className="text-xs text-ink-muted mb-1">You and your friends, ranked by XP.</p>
+                {[{ uid: me.uid, displayName: me.displayName + ' (you)', username: me.username, xp: game.xp, streak: game.streak, avatarType: me.avatarType, avatarPreset: me.avatarPreset, avatarColor: me.avatarColor, avatarPhoto: me.avatarPhoto } as any, ...friends]
+                  .sort((a, b) => (b.xp || 0) - (a.xp || 0))
+                  .map((p, i) => (
+                    <div key={p.uid} className="flex items-center gap-3 bg-card border border-cream-dark rounded-2xl p-3">
+                      <div className="w-6 text-center font-display text-lg text-ink-muted">{i + 1}</div>
+                      <Avatar settings={avatarOf(p)} name={p.username} size={36} />
+                      <div className="flex-1 min-w-0"><div className="font-medium text-ink truncate">{p.displayName}</div><div className="text-xs text-ink-muted flex items-center gap-1"><Flame size={11} className={p.streak ? 'text-terra' : 'text-ink-muted'} /> {p.streak || 0} · Lv {level(p.xp)}</div></div>
+                      <div className="text-sm font-medium text-terra">{p.xp || 0} XP</div>
+                    </div>
+                  ))}
+              </>)}
+            </div>
+          </div>
+        )}
+
+        {/* share-a-reminder mini form */}
+        {sharing && (
+          <div className="absolute inset-0 z-10 flex items-end sm:items-center justify-center bg-ink/40 backdrop-blur-sm" onClick={() => setSharing(null)}>
+            <div className="bg-cream w-full sm:max-w-sm rounded-t-3xl sm:rounded-3xl border border-cream-dark p-6 animate-slide-down" onClick={e => e.stopPropagation()}>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-display text-xl text-ink font-medium">Share with {sharing.displayName}</h3>
+                <button onClick={() => setSharing(null)} className="text-ink-muted hover:text-ink p-1"><X size={18} /></button>
+              </div>
+              <div className="space-y-3">
+                <input value={srTitle} onChange={e => setSrTitle(e.target.value)} placeholder="Reminder title" className={fInput} autoFocus />
+                <div className="grid grid-cols-2 gap-3">
+                  <input type="date" value={srDate} onChange={e => setSrDate(e.target.value)} className={fInput} />
+                  <input type="time" value={srTime} onChange={e => setSrTime(e.target.value)} className={fInput} />
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  {[['none', 'Once'], ['daily', 'Daily'], ['weekly', 'Weekly']].map(([v, l]) => (
+                    <button key={v} onClick={() => setSrRepeat(v)} className={`py-2 rounded-xl border-2 text-sm font-medium transition-colors ${srRepeat === v ? 'border-terra text-terra bg-terra-light' : 'border-cream-dark text-ink-muted hover:border-terra'}`}>{l}</button>
+                  ))}
+                </div>
+                <button onClick={submitShare} className="w-full py-3 rounded-full bg-terra text-cream font-medium hover:bg-terra-dark transition-colors">Share reminder</button>
+                <p className="text-[11px] text-ink-muted text-center">It shows up for both of you and reminds you both.</p>
+              </div>
             </div>
           </div>
         )}
@@ -1086,9 +1244,18 @@ export default function App() {
   const [showNotepad, setShowNotepad] = useState(false);
   const [showFriends, setShowFriends] = useState(false);
   const [notes, setNotes] = useState<Note[]>([]);
+  const [cloudUid, setCloudUid] = useState<string | null>(null);
+  const [sharedReminders, setSharedReminders] = useState<any[]>([]);
+  const [openSpace, setOpenSpace] = useState<{ id: string; withName: string } | null>(null);
   const [settingsCat, setSettingsCat] = useState('account'); // active settings category
-  const anyPanelOpen = showSettings || showStats || showNotepad || showFriends;
-  const closeAllPanels = () => { setShowSettings(false); setShowStats(false); setShowNotepad(false); setShowFriends(false); };
+  const anyPanelOpen = showSettings || showStats || showNotepad || showFriends || !!openSpace;
+  const closeAllPanels = () => { setShowSettings(false); setShowStats(false); setShowNotepad(false); setShowFriends(false); setOpenSpace(null); };
+
+  // shared reminders (from friends) mapped into the same shape as local ones
+  const sharedAsReminders = sharedReminders.map((s: any) => ({
+    id: s.id, title: s.title, description: s.description, triggerAt: s.triggerAt,
+    repeat: s.repeat, dismissed: false, shared: true, sharedId: s.id, withName: s.withName,
+  }));
 
   // ============ TASK / MACRO STATE ============
   const [tasks, setTasks] = useState<Macro[]>([]);
@@ -1208,6 +1375,30 @@ export default function App() {
     try { localStorage.setItem(`lull-notes-${user.username.toLowerCase()}`, JSON.stringify(notes)); } catch { /* quota */ }
   }, [notes, loaded]);
 
+  // cloud auth at app level (verified users only) — powers shared reminders on the home screen
+  useEffect(() => {
+    if (isAlertWindow) return;
+    const off = social.watchCloudAuth(u => setCloudUid(u ? u.uid : null));
+    return () => off();
+  }, []);
+  // live subscription to shared reminders that include me
+  useEffect(() => {
+    if (isAlertWindow || !cloudUid) { setSharedReminders([]); return; }
+    const off = social.watchSharedReminders(cloudUid, list => setSharedReminders(list));
+    return () => off();
+  }, [cloudUid]);
+
+  // keep my cloud profile (avatar, name, XP, streak) current for friends + leaderboard
+  useEffect(() => {
+    if (isAlertWindow || !cloudUid || !loaded || !user) return;
+    social.updateMyProfile(cloudUid, {
+      displayName: settings.displayName || user.username,
+      avatarType: settings.avatarType, avatarPreset: settings.avatarPreset, avatarColor: settings.avatarColor,
+      avatarPhoto: settings.avatarPhoto, profileVisible: settings.profileVisible,
+      xp: game.xp, streak: game.streak,
+    }).catch(() => {});
+  }, [cloudUid, game.xp, game.streak, settings.displayName, settings.avatarType, settings.avatarPreset, settings.avatarColor, settings.avatarPhoto, settings.profileVisible, loaded]);
+
   // Record a completed reminder: award XP, extend the streak if on time, and
   // surface a toast for any freshly-unlocked achievement. Used by every "done" path.
   const recordCompletion = (r: any) => {
@@ -1250,12 +1441,12 @@ export default function App() {
   // No-op on desktop, so the Electron alert path is untouched.
   useEffect(() => {
     if (isAlertWindow || !isNative) return;
-    syncReminderNotifications(reminders, {
+    syncReminderNotifications([...reminders, ...sharedAsReminders], {
       sound: settings.notifSound,
       vibrate: settings.vibrate,
       strongAlert: settings.strongAlert,
     });
-  }, [reminders, settings.notifSound, settings.vibrate, settings.strongAlert]);
+  }, [reminders, sharedReminders, settings.notifSound, settings.vibrate, settings.strongAlert]);
 
   // save settings whenever they change (per-account, after initial load)
   useEffect(() => {
@@ -1337,14 +1528,14 @@ export default function App() {
     if (isAlertWindow) return;
     if (isNative) return; // on iOS reminders fire via scheduled local notifications, not the polling/floating-window path
     if (activeAlert) return;
-    const due = reminders.find(r => !r.dismissed && r.triggerAt <= now);
+    const due = [...reminders.filter(r => !r.dismissed), ...sharedAsReminders].find(r => r.triggerAt <= now);
     if (due) {
       setActiveAlert(due);
       playChime();
       showNotification(due);
-      ipc?.send('show-alert', due);
+      if (!due.shared) ipc?.send('show-alert', due); // shared reminders alert in-app (dismiss syncs to the cloud)
     }
-  }, [now, reminders, activeAlert]);
+  }, [now, reminders, activeAlert, sharedReminders]);
 
   // listen for actions sent back from the alert window
   useEffect(() => {
@@ -1444,10 +1635,18 @@ export default function App() {
     reader.readAsDataURL(file);
   };
 
+  // Completing/advancing a shared reminder syncs to the cloud for both people.
+  const completeShared = (sr: any) => {
+    recordCompletion(sr);
+    if (isRecurring(sr)) social.updateSharedReminder(sr.sharedId, { triggerAt: nextReminderTrigger(sr.triggerAt, sr.repeat, Date.now()) }).catch(() => {});
+    else social.deleteSharedReminder(sr.sharedId).catch(() => {});
+  };
+
   const dismiss = () => {
     if (isAlertWindow) {
       ipc?.send('alert-action', 'dismiss', alertData.id);
     } else if (activeAlert) {
+      if (activeAlert.shared) { completeShared(activeAlert); setActiveAlert(null); return; }
       recordCompletion(activeAlert);
       setReminders(rs => rs.map(r => r.id === activeAlert.id
         ? (isRecurring(r) ? { ...r, triggerAt: nextReminderTrigger(r.triggerAt, r.repeat, Date.now()) } : { ...r, dismissed: true })
@@ -1457,7 +1656,9 @@ export default function App() {
   };
 
   // Mark a reminder done straight from its card (works on desktop and mobile).
-  const completeReminder = (id: number) => {
+  const completeReminder = (id: number | string) => {
+    const sr = sharedAsReminders.find(x => x.id === id);
+    if (sr) { completeShared(sr); return; }
     const r = remindersRef.current.find(x => x.id === id);
     if (r) recordCompletion(r);
     setReminders(rs => rs.map(x => x.id === id
@@ -1469,14 +1670,17 @@ export default function App() {
     if (isAlertWindow) {
       ipc?.send('alert-action', 'snooze', alertData.id);
     } else if (activeAlert) {
-      const id = activeAlert.id;
       const newTrigger = Date.now() + 5 * 60 * 1000;
+      if (activeAlert.shared) { social.updateSharedReminder(activeAlert.sharedId, { triggerAt: newTrigger }).catch(() => {}); setActiveAlert(null); return; }
+      const id = activeAlert.id;
       setReminders(rs => rs.map(r => r.id === id ? { ...r, triggerAt: newTrigger, dismissed: false } : r));
       setActiveAlert(null);
     }
   };
 
-  const deleteReminder = (id: number) => {
+  const deleteReminder = (id: number | string) => {
+    const sr = sharedAsReminders.find(x => x.id === id);
+    if (sr) { social.deleteSharedReminder(sr.sharedId).catch(() => {}); return; }
     const r = remindersRef.current.find(x => x.id === id);
     if (r) recordMiss(r); // deleting an overdue reminder counts as a miss
     setReminders(rs => rs.filter(x => x.id !== id));
@@ -1550,7 +1754,7 @@ export default function App() {
     return `in ${d}d ${h % 24}h`;
   };
 
-  const upcoming = reminders.filter(r => !r.dismissed).sort((a, b) => a.triggerAt - b.triggerAt);
+  const upcoming = [...reminders.filter(r => !r.dismissed), ...sharedAsReminders].sort((a, b) => a.triggerAt - b.triggerAt);
   const ukNow = fmtTime(now);
   const themeClass = `theme-${settings.theme}`;
 
@@ -1920,7 +2124,12 @@ export default function App() {
 
         {/* ============ FRIENDS (cloud account) ============ */}
         {showFriends && (
-          <FriendsPanel localUsername={user.username} settings={settings} onClose={() => setShowFriends(false)} />
+          <FriendsPanel localUsername={user.username} settings={settings} game={game} onOpenSpace={(id, withName) => { setShowFriends(false); setOpenSpace({ id, withName }); }} onClose={() => setShowFriends(false)} />
+        )}
+
+        {/* ============ SHARED NOTEPAD ============ */}
+        {openSpace && (
+          <SharedNotepad space={openSpace} theme={settings.theme} onClose={() => setOpenSpace(null)} />
         )}
 
         {settings.pattern && settings.pattern !== 'none' && (
@@ -2090,6 +2299,11 @@ export default function App() {
                       <div className="text-xs text-ink-muted">{fmtDate(r.triggerAt)}</div>
                     </div>
                     <div className="text-right">
+                      {r.shared && (
+                        <div className="bg-terra text-cream text-[10px] font-medium px-2.5 py-1 rounded-full inline-block mb-2 ml-1 uppercase tracking-wider">
+                          Shared · {r.withName}
+                        </div>
+                      )}
                       {isRecurring(r) && (
                         <div className="bg-cream-dark text-ink-muted text-[10px] font-medium px-2.5 py-1 rounded-full inline-block mb-2 ml-1 uppercase tracking-wider">
                           {repeatLabel(r.repeat)}

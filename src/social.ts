@@ -3,10 +3,11 @@
 // features light up only once the user signs into a cloud account.
 import {
   createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut,
-  onAuthStateChanged, sendEmailVerification, reload, type User,
+  onAuthStateChanged, type User,
 } from 'firebase/auth';
 import {
   doc, getDoc, setDoc, deleteDoc, collection, getDocs, query, where, limit,
+  onSnapshot, updateDoc, addDoc,
 } from 'firebase/firestore';
 import { auth, db } from './firebase';
 
@@ -19,29 +20,21 @@ export interface CloudProfile {
   avatarColor: string;
   avatarPhoto: string;   // '' unless the user shares it (profileVisible)
   photoVisible: boolean;
+  xp?: number;           // published for the friends leaderboard
+  streak?: number;
 }
 
 export interface FriendRequest { fromUid: string; fromUsername: string; fromName: string }
-export interface Friend { uid: string; username: string; displayName: string; avatarType?: string; avatarPreset?: string; avatarColor?: string; avatarPhoto?: string }
+export interface Friend { uid: string; username: string; displayName: string; avatarType?: string; avatarPreset?: string; avatarColor?: string; avatarPhoto?: string; xp?: number; streak?: number }
+
+export interface SharedReminder { id: string; title: string; description: string; triggerAt: number; repeat: string; ownerUid: string; ownerName: string; members: string[]; withName: string }
+export interface Space { id: string; name: string; members: string[]; withName: string }
+export interface SpaceNote { id: string; x: number; y: number; text: string; colors: string[] }
 
 export const currentUid = (): string | null => auth.currentUser?.uid ?? null;
-export const currentEmail = (): string => auth.currentUser?.email ?? '';
-export const isVerified = (): boolean => !!auth.currentUser?.emailVerified;
 
 export function watchCloudAuth(cb: (user: User | null) => void): () => void {
   return onAuthStateChanged(auth, cb);
-}
-
-// Re-send the verification email to the signed-in user.
-export async function resendVerification(): Promise<void> {
-  if (auth.currentUser) await sendEmailVerification(auth.currentUser);
-}
-
-// Reload the account from Firebase and report whether the email is now verified.
-export async function refreshVerified(): Promise<boolean> {
-  if (!auth.currentUser) return false;
-  await reload(auth.currentUser);
-  return !!auth.currentUser.emailVerified;
 }
 
 // ---- profile fields the caller supplies (from local settings) ----
@@ -52,6 +45,8 @@ export interface ProfileInput {
   avatarColor: string;
   avatarPhoto: string;
   profileVisible: boolean;
+  xp?: number;
+  streak?: number;
 }
 
 function profileDoc(uid: string, username: string, p: ProfileInput) {
@@ -65,6 +60,8 @@ function profileDoc(uid: string, username: string, p: ProfileInput) {
     // only publish the photo when the user has opted in
     avatarPhoto: p.profileVisible && p.avatarType === 'photo' ? p.avatarPhoto : '',
     photoVisible: !!p.profileVisible,
+    xp: p.xp ?? 0,
+    streak: p.streak ?? 0,
   };
 }
 
@@ -79,8 +76,6 @@ export async function cloudSignUp(email: string, password: string, username: str
   try {
     const cred = await createUserWithEmailAndPassword(auth, email.trim(), password);
     uid = cred.user.uid;
-    // send the "confirm it's really your email" link
-    try { await sendEmailVerification(cred.user); } catch { /* can resend later */ }
   } catch (e: any) {
     if (e?.code === 'auth/email-already-in-use') {
       const cred = await signInWithEmailAndPassword(auth, email.trim(), password);
@@ -118,6 +113,21 @@ export async function getProfile(uid: string): Promise<CloudProfile | null> {
 // Push the latest local profile up to the cloud (called when settings change).
 export async function syncProfile(uid: string, username: string, p: ProfileInput): Promise<void> {
   await setDoc(doc(db, 'users', uid), profileDoc(uid, username, p), { merge: true });
+}
+
+// Update the mutable profile fields (name, avatar, stats) WITHOUT touching the
+// username handle — used to keep a friend's view + the leaderboard current.
+export async function updateMyProfile(uid: string, p: ProfileInput): Promise<void> {
+  await updateDoc(doc(db, 'users', uid), {
+    displayName: p.displayName,
+    avatarType: p.avatarType,
+    avatarPreset: p.avatarPreset,
+    avatarColor: p.avatarColor,
+    avatarPhoto: p.profileVisible && p.avatarType === 'photo' ? p.avatarPhoto : '',
+    photoVisible: !!p.profileVisible,
+    xp: p.xp ?? 0,
+    streak: p.streak ?? 0,
+  });
 }
 
 export async function searchUsers(term: string, selfUid: string): Promise<CloudProfile[]> {
@@ -167,7 +177,7 @@ export async function listFriends(uid: string): Promise<Friend[]> {
     const base = d.data() as Friend;
     const prof = await getProfile(base.uid);
     friends.push(prof
-      ? { uid: prof.uid, username: prof.username, displayName: prof.displayName, avatarType: prof.avatarType, avatarPreset: prof.avatarPreset, avatarColor: prof.avatarColor, avatarPhoto: prof.photoVisible ? prof.avatarPhoto : '' }
+      ? { uid: prof.uid, username: prof.username, displayName: prof.displayName, avatarType: prof.avatarType, avatarPreset: prof.avatarPreset, avatarColor: prof.avatarColor, avatarPhoto: prof.photoVisible ? prof.avatarPhoto : '', xp: prof.xp ?? 0, streak: prof.streak ?? 0 }
       : base);
   }
   return friends;
@@ -176,4 +186,70 @@ export async function listFriends(uid: string): Promise<Friend[]> {
 export async function removeFriend(myUid: string, friendUid: string): Promise<void> {
   await deleteDoc(doc(db, 'users', myUid, 'friends', friendUid));
   await deleteDoc(doc(db, 'users', friendUid, 'friends', myUid));
+}
+
+// ============================================================
+// SHARING — shared reminders + co-edited notepad spaces (realtime).
+// ============================================================
+const otherMemberName = (data: any, uid: string): string => {
+  const other = (data.members || []).find((m: string) => m !== uid);
+  return (data.memberNames && data.memberNames[other]) || data.ownerName || 'Friend';
+};
+
+export async function createSharedReminder(me: CloudProfile, friend: Friend, r: { title: string; description: string; triggerAt: number; repeat: string }): Promise<void> {
+  await addDoc(collection(db, 'sharedReminders'), {
+    title: r.title, description: r.description, triggerAt: r.triggerAt, repeat: r.repeat || 'none',
+    ownerUid: me.uid, ownerName: me.displayName,
+    members: [me.uid, friend.uid],
+    memberNames: { [me.uid]: me.displayName, [friend.uid]: friend.displayName },
+    createdAt: Date.now(),
+  });
+}
+
+// Live list of shared reminders that include me.
+export function watchSharedReminders(uid: string, cb: (list: SharedReminder[]) => void): () => void {
+  const q = query(collection(db, 'sharedReminders'), where('members', 'array-contains', uid));
+  return onSnapshot(q, snap => {
+    cb(snap.docs.map(d => {
+      const data = d.data() as any;
+      return { id: d.id, title: data.title, description: data.description || '', triggerAt: data.triggerAt, repeat: data.repeat || 'none', ownerUid: data.ownerUid, ownerName: data.ownerName, members: data.members || [], withName: otherMemberName(data, uid) };
+    }));
+  }, () => cb([]));
+}
+
+export async function updateSharedReminder(id: string, patch: any): Promise<void> { await updateDoc(doc(db, 'sharedReminders', id), patch); }
+export async function deleteSharedReminder(id: string): Promise<void> { await deleteDoc(doc(db, 'sharedReminders', id)); }
+
+// ---- shared notepad spaces ----
+export async function createSpace(me: CloudProfile, friend: Friend): Promise<string> {
+  const ref = await addDoc(collection(db, 'spaces'), {
+    name: `${me.displayName} & ${friend.displayName}`,
+    members: [me.uid, friend.uid],
+    memberNames: { [me.uid]: me.displayName, [friend.uid]: friend.displayName },
+    createdAt: Date.now(),
+  });
+  return ref.id;
+}
+
+export function watchSpaces(uid: string, cb: (list: Space[]) => void): () => void {
+  const q = query(collection(db, 'spaces'), where('members', 'array-contains', uid));
+  return onSnapshot(q, snap => {
+    cb(snap.docs.map(d => { const data = d.data() as any; return { id: d.id, name: data.name, members: data.members || [], withName: otherMemberName(data, uid) }; }));
+  }, () => cb([]));
+}
+
+export async function deleteSpace(spaceId: string): Promise<void> { await deleteDoc(doc(db, 'spaces', spaceId)); }
+
+export function watchSpaceNotes(spaceId: string, cb: (notes: SpaceNote[]) => void): () => void {
+  return onSnapshot(collection(db, 'spaces', spaceId, 'notes'), snap => {
+    cb(snap.docs.map(d => { const data = d.data() as any; return { id: d.id, x: data.x, y: data.y, text: data.text || '', colors: data.colors || ['#C8553D'] }; }));
+  }, () => cb([]));
+}
+
+export async function setSpaceNote(spaceId: string, note: SpaceNote): Promise<void> {
+  const { id, ...data } = note;
+  await setDoc(doc(db, 'spaces', spaceId, 'notes', id), data, { merge: true });
+}
+export async function deleteSpaceNote(spaceId: string, noteId: string): Promise<void> {
+  await deleteDoc(doc(db, 'spaces', spaceId, 'notes', noteId));
 }
