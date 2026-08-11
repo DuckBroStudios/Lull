@@ -977,10 +977,11 @@ function SharedNotepad({ space, theme, onClose }: {
 // FRIENDS — optional cloud account, user search, requests, list.
 // Backed by src/social.ts (Firebase). Fully separate from local login.
 // ============================================================
-function FriendsPanel({ localUsername, settings, game, onOpenSpace, onClose }: {
+function FriendsPanel({ localUsername, settings, game, reminders, onOpenSpace, onClose }: {
   localUsername: string;
   settings: UserSettings;
   game: GameState;
+  reminders: any[];
   onOpenSpace: (id: string, withName: string) => void;
   onClose: () => void;
 }) {
@@ -1002,6 +1003,7 @@ function FriendsPanel({ localUsername, settings, game, onOpenSpace, onClose }: {
   const [friends, setFriends] = useState<Friend[]>([]);
   const [spaces, setSpaces] = useState<social.Space[]>([]);
   const [sharing, setSharing] = useState<Friend | null>(null); // friend we're sharing a reminder with
+  const [shareMode, setShareMode] = useState<'new' | 'select'>('new');
   const [srTitle, setSrTitle] = useState('');
   const [srDate, setSrDate] = useState('');
   const [srTime, setSrTime] = useState('');
@@ -1023,13 +1025,6 @@ function FriendsPanel({ localUsername, settings, game, onOpenSpace, onClose }: {
     displayName: p.displayName || p.username || '?',
   });
 
-  const refresh = async (uid: string) => {
-    try {
-      const [rq, fr] = await Promise.all([social.listIncomingRequests(uid), social.listFriends(uid)]);
-      setRequests(rq); setFriends(fr);
-    } catch { /* offline */ }
-  };
-
   useEffect(() => {
     const off = social.watchCloudAuth(async (u) => {
       if (u) {
@@ -1037,7 +1032,6 @@ function FriendsPanel({ localUsername, settings, game, onOpenSpace, onClose }: {
           let prof = await social.getProfile(u.uid);
           if (!prof) { await social.syncProfile(u.uid, (localUsername || 'user').toLowerCase(), profileInput()); prof = await social.getProfile(u.uid); }
           setMe(prof);
-          if (prof) refresh(prof.uid);
         } catch { setMe(null); }
       } else setMe(null);
       setReady(true);
@@ -1049,8 +1043,8 @@ function FriendsPanel({ localUsername, settings, game, onOpenSpace, onClose }: {
   const doAuth = async () => {
     setError(''); setBusy(true);
     try {
-      if (mode === 'up') { const prof = await social.cloudSignUp(email, password, handle, profileInput()); setMe(prof); refresh(prof.uid); }
-      else { const prof = await social.cloudSignIn(email, password); setMe(prof); if (prof) refresh(prof.uid); }
+      if (mode === 'up') { const prof = await social.cloudSignUp(email, password, handle, profileInput()); setMe(prof); }
+      else { const prof = await social.cloudSignIn(email, password); setMe(prof); }
     } catch (e: any) { setError(e?.message || 'Something went wrong.'); }
     finally { setBusy(false); }
   };
@@ -1061,15 +1055,17 @@ function FriendsPanel({ localUsername, settings, game, onOpenSpace, onClose }: {
     try { setResults(await social.searchUsers(term, me.uid)); } catch { setResults([]); } finally { setSearching(false); }
   };
   const doSend = async (to: CloudProfile) => { if (!me) return; try { await social.sendFriendRequest(me, to.uid); setSentTo(s => [...s, to.uid]); } catch (e: any) { setError(e?.message || 'Could not send request.'); } };
-  const doAccept = async (r: FriendRequest) => { if (!me) return; try { await social.acceptFriendRequest(me, r); refresh(me.uid); } catch { /* ignore */ } };
+  const doAccept = async (r: FriendRequest) => { if (!me) return; try { await social.acceptFriendRequest(me, r); } catch { /* ignore */ } };
   const doDecline = async (r: FriendRequest) => { if (!me) return; try { await social.declineFriendRequest(me.uid, r.fromUid); setRequests(rs => rs.filter(x => x.fromUid !== r.fromUid)); } catch { /* ignore */ } };
   const doRemove = async (f: Friend) => { if (!me) return; try { await social.removeFriend(me.uid, f.uid); setFriends(fs => fs.filter(x => x.uid !== f.uid)); } catch { /* ignore */ } };
 
-  // live list of shared notepad spaces I belong to
+  // live subscriptions: friends, requests, shared spaces — keep both devices in sync
   useEffect(() => {
-    if (!me) { setSpaces([]); return; }
-    const off = social.watchSpaces(me.uid, setSpaces);
-    return () => off();
+    if (!me) { setSpaces([]); setFriends([]); setRequests([]); return; }
+    const offS = social.watchSpaces(me.uid, setSpaces);
+    const offF = social.watchFriends(me.uid, setFriends);
+    const offR = social.watchRequests(me.uid, setRequests);
+    return () => { offS(); offF(); offR(); };
   }, [me]);
 
   // open (or create) the shared notepad with a friend
@@ -1079,14 +1075,14 @@ function FriendsPanel({ localUsername, settings, game, onOpenSpace, onClose }: {
     try {
       const id = existing ? existing.id : await social.createSpace(me, f);
       onOpenSpace(id, f.displayName);
-    } catch { /* ignore */ }
+    } catch (e: any) { setError(e?.message || 'Could not open the shared notepad. Re-check the Firestore rules.'); }
   };
 
   // share-a-reminder flow
   const openShare = (f: Friend) => {
     const d = new Date(Date.now() + 60 * 60 * 1000);
     const p = (n: number) => String(n).padStart(2, '0');
-    setSrTitle(''); setSrRepeat('none');
+    setShareMode('new'); setSrTitle(''); setSrRepeat('none');
     setSrDate(`${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`);
     setSrTime(`${p(d.getHours())}:${p(d.getMinutes())}`);
     setSharing(f);
@@ -1095,6 +1091,11 @@ function FriendsPanel({ localUsername, settings, game, onOpenSpace, onClose }: {
     if (!me || !sharing || !srTitle.trim() || !srDate || !srTime) return;
     const triggerAt = new Date(`${srDate}T${srTime}:00`).getTime();
     try { await social.createSharedReminder(me, sharing, { title: srTitle.trim(), description: '', triggerAt, repeat: srRepeat }); setSharing(null); }
+    catch (e: any) { setError(e?.message || 'Could not share.'); }
+  };
+  const shareExisting = async (r: any) => {
+    if (!me || !sharing) return;
+    try { await social.createSharedReminder(me, sharing, { title: r.title, description: r.description || '', triggerAt: r.triggerAt, repeat: r.repeat || 'none' }); setSharing(null); }
     catch (e: any) { setError(e?.message || 'Could not share.'); }
   };
 
@@ -1203,20 +1204,37 @@ function FriendsPanel({ localUsername, settings, game, onOpenSpace, onClose }: {
                 <h3 className="font-display text-xl text-ink font-medium">Share with {sharing.displayName}</h3>
                 <button onClick={() => setSharing(null)} className="text-ink-muted hover:text-ink p-1"><X size={18} /></button>
               </div>
-              <div className="space-y-3">
-                <input value={srTitle} onChange={e => setSrTitle(e.target.value)} placeholder="Reminder title" className={fInput} autoFocus />
-                <div className="grid grid-cols-2 gap-3">
-                  <input type="date" value={srDate} onChange={e => setSrDate(e.target.value)} className={fInput} />
-                  <input type="time" value={srTime} onChange={e => setSrTime(e.target.value)} className={fInput} />
+              {/* New vs Select existing */}
+              <div className="grid grid-cols-2 gap-2 mb-3">
+                <button onClick={() => setShareMode('new')} className={`py-2 rounded-xl border-2 text-sm font-medium transition-colors ${shareMode === 'new' ? 'border-terra text-terra bg-terra-light' : 'border-cream-dark text-ink-muted hover:border-terra'}`}>New</button>
+                <button onClick={() => setShareMode('select')} className={`py-2 rounded-xl border-2 text-sm font-medium transition-colors ${shareMode === 'select' ? 'border-terra text-terra bg-terra-light' : 'border-cream-dark text-ink-muted hover:border-terra'}`}>Select</button>
+              </div>
+              {shareMode === 'new' ? (
+                <div className="space-y-3">
+                  <input value={srTitle} onChange={e => setSrTitle(e.target.value)} placeholder="Reminder title" className={fInput} autoFocus />
+                  <div className="grid grid-cols-2 gap-3">
+                    <input type="date" value={srDate} onChange={e => setSrDate(e.target.value)} className={fInput} />
+                    <input type="time" value={srTime} onChange={e => setSrTime(e.target.value)} className={fInput} />
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[['none', 'Once'], ['daily', 'Daily'], ['weekly', 'Weekly']].map(([v, l]) => (
+                      <button key={v} onClick={() => setSrRepeat(v)} className={`py-2 rounded-xl border-2 text-sm font-medium transition-colors ${srRepeat === v ? 'border-terra text-terra bg-terra-light' : 'border-cream-dark text-ink-muted hover:border-terra'}`}>{l}</button>
+                    ))}
+                  </div>
+                  <button onClick={submitShare} className="w-full py-3 rounded-full bg-terra text-cream font-medium hover:bg-terra-dark transition-colors">Share reminder</button>
+                  <p className="text-[11px] text-ink-muted text-center">It shows up for both of you and reminds you both.</p>
                 </div>
-                <div className="grid grid-cols-3 gap-2">
-                  {[['none', 'Once'], ['daily', 'Daily'], ['weekly', 'Weekly']].map(([v, l]) => (
-                    <button key={v} onClick={() => setSrRepeat(v)} className={`py-2 rounded-xl border-2 text-sm font-medium transition-colors ${srRepeat === v ? 'border-terra text-terra bg-terra-light' : 'border-cream-dark text-ink-muted hover:border-terra'}`}>{l}</button>
+              ) : (
+                <div className="space-y-2 max-h-72 overflow-y-auto">
+                  {reminders.filter(r => !r.dismissed && !r.shared).length === 0 && <p className="text-sm text-ink-muted text-center py-4">You have no reminders to share yet.</p>}
+                  {reminders.filter(r => !r.dismissed && !r.shared).map(r => (
+                    <button key={r.id} onClick={() => shareExisting(r)} className="w-full text-left bg-card border border-cream-dark rounded-2xl p-3 hover:border-terra transition-colors">
+                      <div className="font-medium text-ink text-sm truncate">{r.title}</div>
+                      <div className="text-xs text-ink-muted mt-0.5">{new Date(r.triggerAt).toLocaleString('en-GB', { weekday: 'short', hour: '2-digit', minute: '2-digit' })}{r.repeat && r.repeat !== 'none' ? ` · ${r.repeat}` : ''}</div>
+                    </button>
                   ))}
                 </div>
-                <button onClick={submitShare} className="w-full py-3 rounded-full bg-terra text-cream font-medium hover:bg-terra-dark transition-colors">Share reminder</button>
-                <p className="text-[11px] text-ink-muted text-center">It shows up for both of you and reminds you both.</p>
-              </div>
+              )}
             </div>
           </div>
         )}
@@ -2124,7 +2142,7 @@ export default function App() {
 
         {/* ============ FRIENDS (cloud account) ============ */}
         {showFriends && (
-          <FriendsPanel localUsername={user.username} settings={settings} game={game} onOpenSpace={(id, withName) => { setShowFriends(false); setOpenSpace({ id, withName }); }} onClose={() => setShowFriends(false)} />
+          <FriendsPanel localUsername={user.username} settings={settings} game={game} reminders={reminders} onOpenSpace={(id, withName) => { setShowFriends(false); setOpenSpace({ id, withName }); }} onClose={() => setShowFriends(false)} />
         )}
 
         {/* ============ SHARED NOTEPAD ============ */}

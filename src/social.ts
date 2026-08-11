@@ -62,6 +62,7 @@ function profileDoc(uid: string, username: string, p: ProfileInput) {
     photoVisible: !!p.profileVisible,
     xp: p.xp ?? 0,
     streak: p.streak ?? 0,
+    displayLower: (p.displayName || username).toLowerCase(), // for name search
   };
 }
 
@@ -127,20 +128,24 @@ export async function updateMyProfile(uid: string, p: ProfileInput): Promise<voi
     photoVisible: !!p.profileVisible,
     xp: p.xp ?? 0,
     streak: p.streak ?? 0,
+    displayLower: (p.displayName || '').toLowerCase(),
   });
 }
 
 export async function searchUsers(term: string, selfUid: string): Promise<CloudProfile[]> {
   const t = term.trim().toLowerCase();
   if (!t) return [];
-  const q = query(
-    collection(db, 'users'),
-    where('username', '>=', t),
-    where('username', '<=', t + ''),
-    limit(15),
-  );
-  const snap = await getDocs(q);
-  return snap.docs.map(d => d.data() as CloudProfile).filter(u => u.uid !== selfUid);
+  // prefix-match either the @username handle or the display name
+  const byField = async (field: string): Promise<CloudProfile[]> => {
+    try {
+      const snap = await getDocs(query(collection(db, 'users'), where(field, '>=', t), where(field, '<=', t + ''), limit(15)));
+      return snap.docs.map(d => d.data() as CloudProfile);
+    } catch { return []; }
+  };
+  const [byHandle, byName] = await Promise.all([byField('username'), byField('displayLower')]);
+  const map = new Map<string, CloudProfile>();
+  [...byHandle, ...byName].forEach(u => { if (u.uid !== selfUid) map.set(u.uid, u); });
+  return [...map.values()].slice(0, 15);
 }
 
 export async function sendFriendRequest(me: CloudProfile, toUid: string): Promise<void> {
@@ -186,6 +191,26 @@ export async function listFriends(uid: string): Promise<Friend[]> {
 export async function removeFriend(myUid: string, friendUid: string): Promise<void> {
   await deleteDoc(doc(db, 'users', myUid, 'friends', friendUid));
   await deleteDoc(doc(db, 'users', friendUid, 'friends', myUid));
+}
+
+// Live friends list (updates on both devices the moment a request is accepted).
+export function watchFriends(uid: string, cb: (list: Friend[]) => void): () => void {
+  return onSnapshot(collection(db, 'users', uid, 'friends'), async snap => {
+    const out: Friend[] = [];
+    for (const d of snap.docs) {
+      const base = d.data() as Friend;
+      const prof = await getProfile(base.uid);
+      out.push(prof
+        ? { uid: prof.uid, username: prof.username, displayName: prof.displayName, avatarType: prof.avatarType, avatarPreset: prof.avatarPreset, avatarColor: prof.avatarColor, avatarPhoto: prof.photoVisible ? prof.avatarPhoto : '', xp: prof.xp ?? 0, streak: prof.streak ?? 0 }
+        : base);
+    }
+    cb(out);
+  }, () => cb([]));
+}
+
+// Live incoming friend requests.
+export function watchRequests(uid: string, cb: (list: FriendRequest[]) => void): () => void {
+  return onSnapshot(collection(db, 'users', uid, 'requests'), snap => cb(snap.docs.map(d => d.data() as FriendRequest)), () => cb([]));
 }
 
 // ============================================================
