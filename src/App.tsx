@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Plus, X, Image as ImageIcon, Trash2, AlarmClock, Bell, Clock, Settings, LogOut, User, Moon, Sun, Volume2, VolumeX, Eye, EyeOff, Zap, Play, Square, MousePointerClick, Keyboard, Type, Move, Pencil, ChevronLeft, AlertTriangle, Music, Pause, Lock, Flame, Trophy, Target, TrendingUp, Gift, BarChart3, Sparkles, Home, Palette, Upload, ZoomIn, ZoomOut, Users, Search, UserPlus, Check } from 'lucide-react';
+import { Plus, X, Image as ImageIcon, Trash2, AlarmClock, Bell, Clock, Settings, LogOut, User, Moon, Sun, Volume2, VolumeX, Eye, EyeOff, Zap, Play, Square, MousePointerClick, Keyboard, Type, Move, Pencil, ChevronLeft, AlertTriangle, Music, Pause, Lock, Flame, Trophy, Target, TrendingUp, Gift, BarChart3, Sparkles, Home, Palette, Upload, ZoomIn, ZoomOut, Users, Search, UserPlus, Check, Mail } from 'lucide-react';
 import { isNative, requestReminderPermission, syncReminderNotifications } from './notifications';
 import * as social from './social';
 import type { CloudProfile, Friend, FriendRequest } from './social';
@@ -903,6 +903,8 @@ function FriendsPanel({ localUsername, settings, onClose }: {
   const [sentTo, setSentTo] = useState<string[]>([]);
   const [requests, setRequests] = useState<FriendRequest[]>([]);
   const [friends, setFriends] = useState<Friend[]>([]);
+  const [verified, setVerified] = useState(true); // friends stay locked until the email is confirmed
+  const [verifyMsg, setVerifyMsg] = useState('');
 
   const profileInput = (): social.ProfileInput => ({
     displayName: settings.displayName || localUsername,
@@ -928,13 +930,14 @@ function FriendsPanel({ localUsername, settings, onClose }: {
   useEffect(() => {
     const off = social.watchCloudAuth(async (u) => {
       if (u) {
+        setVerified(!!u.emailVerified);
         try {
           let prof = await social.getProfile(u.uid);
           if (!prof) { await social.syncProfile(u.uid, (localUsername || 'user').toLowerCase(), profileInput()); prof = await social.getProfile(u.uid); }
           setMe(prof);
           if (prof) refresh(prof.uid);
         } catch { setMe(null); }
-      } else setMe(null);
+      } else { setMe(null); setVerified(true); }
       setReady(true);
     });
     return () => off();
@@ -944,12 +947,22 @@ function FriendsPanel({ localUsername, settings, onClose }: {
   const doAuth = async () => {
     setError(''); setBusy(true);
     try {
-      if (mode === 'up') { const prof = await social.cloudSignUp(email, password, handle, profileInput()); setMe(prof); refresh(prof.uid); }
-      else { const prof = await social.cloudSignIn(email, password); setMe(prof); if (prof) refresh(prof.uid); }
+      if (mode === 'up') { const prof = await social.cloudSignUp(email, password, handle, profileInput()); setMe(prof); setVerified(social.isVerified()); refresh(prof.uid); }
+      else { const prof = await social.cloudSignIn(email, password); setMe(prof); setVerified(social.isVerified()); if (prof) refresh(prof.uid); }
     } catch (e: any) { setError(e?.message || 'Something went wrong.'); }
     finally { setBusy(false); }
   };
-  const doSignOut = async () => { try { await social.cloudSignOut(); } catch { /* ignore */ } setMe(null); setFriends([]); setRequests([]); setResults([]); };
+  const doSignOut = async () => { try { await social.cloudSignOut(); } catch { /* ignore */ } setMe(null); setVerified(true); setFriends([]); setRequests([]); setResults([]); };
+  const doRefreshVerify = async () => {
+    setVerifyMsg('Checking…');
+    try { const ok = await social.refreshVerified(); setVerified(ok); setVerifyMsg(ok ? '' : 'Not verified yet — open the link in your email, then try again.'); }
+    catch { setVerifyMsg('Could not check just now — try again.'); }
+  };
+  const doResend = async () => {
+    setVerifyMsg('Sending…');
+    try { await social.resendVerification(); setVerifyMsg('Sent! Check your inbox (and spam folder).'); }
+    catch { setVerifyMsg('Could not send right now — try again shortly.'); }
+  };
   const doSearch = async () => {
     if (!me) return;
     setSearching(true);
@@ -981,6 +994,20 @@ function FriendsPanel({ localUsername, settings, onClose }: {
               <button onClick={doAuth} disabled={busy} className="w-full py-3.5 rounded-full bg-terra text-cream font-medium hover:bg-terra-dark disabled:opacity-50 transition-colors">{busy ? 'Please wait…' : mode === 'up' ? 'Create account' : 'Sign in'}</button>
             </div>
             <button onClick={() => { setMode(mode === 'up' ? 'in' : 'up'); setError(''); }} className="mt-4 text-sm text-terra hover:text-terra-dark transition-colors">{mode === 'up' ? 'Already have a cloud account? Sign in' : 'New here? Create a cloud account'}</button>
+          </div>
+        ) : !verified ? (
+          <div className="flex-1 overflow-y-auto p-6 flex flex-col items-center justify-center text-center">
+            <Mail size={40} className="text-terra mb-4" strokeWidth={1.5} />
+            <h3 className="font-display text-2xl text-ink mb-2">Confirm your email</h3>
+            <p className="text-ink-muted text-sm mb-1">We sent a confirmation link to</p>
+            <p className="text-ink font-medium mb-4 break-all">{social.currentEmail()}</p>
+            <p className="text-ink-muted text-sm mb-6 max-w-xs">Open it to prove the email is yours, then tap below. Only confirmed emails can use friends.</p>
+            <div className="w-full max-w-xs space-y-2">
+              <button onClick={doRefreshVerify} className="w-full py-3 rounded-full bg-terra text-cream font-medium hover:bg-terra-dark transition-colors">I've confirmed — continue</button>
+              <button onClick={doResend} className="w-full py-3 rounded-full border border-cream-dark text-ink hover:border-terra hover:text-terra transition-colors font-medium">Resend email</button>
+              <button onClick={doSignOut} className="w-full py-2 text-sm text-ink-muted hover:text-terra transition-colors">Use a different account</button>
+            </div>
+            {verifyMsg && <p className="text-sm text-ink-muted mt-4">{verifyMsg}</p>}
           </div>
         ) : (
           <div className="flex-1 flex flex-col min-h-0">
@@ -1060,7 +1087,6 @@ export default function App() {
   const [showFriends, setShowFriends] = useState(false);
   const [notes, setNotes] = useState<Note[]>([]);
   const [settingsCat, setSettingsCat] = useState('account'); // active settings category
-  const [editMode, setEditMode] = useState(false);
   const anyPanelOpen = showSettings || showStats || showNotepad || showFriends;
   const closeAllPanels = () => { setShowSettings(false); setShowStats(false); setShowNotepad(false); setShowFriends(false); };
 
@@ -1872,14 +1898,6 @@ export default function App() {
                     <span className="font-medium">{item.label}</span>
                   </button>
                 ))}
-
-                <button
-                  onClick={() => { setEditMode(e => !e); closeAllPanels(); setShowSidebar(false); }}
-                  className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl border transition-colors text-left ${editMode ? 'bg-terra-light border-terra text-terra-dark' : 'text-ink hover:bg-card border-transparent hover:border-cream-dark'}`}
-                >
-                  <Move size={19} strokeWidth={1.9} className="text-terra"/>
-                  <span className="font-medium">{editMode ? 'Done editing layout' : 'Edit layout'}</span>
-                </button>
               </nav>
 
               {/* footer: logout */}
@@ -2399,10 +2417,10 @@ export default function App() {
         })()}
 
         {showSettings && (
-          <div className="fixed inset-0 z-40 flex items-center justify-center p-3 sm:p-6 animate-fade-in lull-modal-overlay" style={{ background: 'rgba(31, 36, 33, 0.35)', backdropFilter: 'blur(6px)' }}>
-            <div className="bg-cream rounded-3xl w-full max-w-3xl h-[86vh] border border-cream-dark shadow-2xl overflow-hidden animate-slide-down lull-modal flex flex-col" style={{ boxShadow: '0 30px 80px -20px rgba(31, 36, 33, 0.4)' }}>
+          <div className="fixed inset-0 z-40 flex items-center justify-center p-0 sm:p-6 animate-fade-in lull-modal-overlay" style={{ background: 'rgba(31, 36, 33, 0.35)', backdropFilter: 'blur(6px)' }}>
+            <div className="bg-cream w-full h-full rounded-none sm:rounded-3xl sm:max-w-3xl sm:h-[86vh] border border-cream-dark shadow-2xl overflow-hidden animate-slide-down lull-modal flex flex-col" style={{ boxShadow: '0 30px 80px -20px rgba(31, 36, 33, 0.4)', paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
               {/* window title bar */}
-              <div className="flex items-center justify-between px-6 py-4 border-b border-cream-dark">
+              <div className="flex items-center justify-between px-5 sm:px-6 py-4 border-b border-cream-dark">
                 <div className="flex items-center gap-2">
                   <Settings size={18} className="text-terra" strokeWidth={1.9}/>
                   <h2 className="font-display text-xl text-ink font-medium">Settings</h2>
@@ -2410,8 +2428,8 @@ export default function App() {
                 <button onClick={() => setShowSettings(false)} className="text-ink-muted hover:text-ink transition-colors p-1.5" aria-label="Close settings"><X size={20}/></button>
               </div>
 
-              <div className="flex-1 flex min-h-0">
-                <div className="flex-1 overflow-y-auto p-6 space-y-6">
+              <div className="flex-1 flex flex-col sm:flex-row min-h-0">
+                <div className="order-2 sm:order-1 flex-1 overflow-y-auto p-4 sm:p-6 space-y-6">
 
                   {settingsCat === 'account' && (<>
                     <div className="flex items-center gap-4 bg-card rounded-2xl p-4 border border-cream-dark">
@@ -2467,6 +2485,30 @@ export default function App() {
                   </>)}
 
                   {settingsCat === 'customization' && (<>
+                    {/* live preview of the current theme / background / pattern */}
+                    <div>
+                      <label className="text-xs uppercase tracking-wider text-ink-muted block mb-2">Preview</label>
+                      <div className={`theme-${settings.theme} rounded-2xl overflow-hidden border border-cream-dark relative`} style={{ height: 156, background: resolveBackground(settings, now) }}>
+                        {settings.pattern && settings.pattern !== 'none' && (
+                          <div className="absolute inset-0 pointer-events-none" style={patternStyle(settings)} aria-hidden="true" />
+                        )}
+                        <div className="relative h-full p-4 flex flex-col justify-between">
+                          <div>
+                            <div className="text-[10px] uppercase tracking-[0.2em] text-ink-muted mb-1">{greetingText(settings, now)}</div>
+                            <div className="font-display text-2xl text-ink font-light leading-none">Lull<span className="text-terra italic">.</span></div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <div className="flex-1 bg-card border border-cream-dark rounded-xl px-3 py-2 shadow-sm">
+                              <div className="text-ink font-medium text-sm leading-tight">Morning walk</div>
+                              <div className="text-ink-muted text-[11px] mt-0.5">in 2h 15m</div>
+                            </div>
+                            <div className="bg-terra text-cream rounded-full px-3 py-2 text-xs font-medium shadow-sm">New</div>
+                          </div>
+                        </div>
+                      </div>
+                      <p className="text-[11px] text-ink-muted mt-2">Updates live as you change the options below.</p>
+                    </div>
+
                     <div>
                       <label className="text-xs uppercase tracking-wider text-ink-muted block mb-2">Appearance</label>
                       <div className="grid grid-cols-2 gap-3">
@@ -2564,7 +2606,7 @@ export default function App() {
 
                   {!isNative && settingsCat === 'reminders' && (
                     <div>
-                      <label className="text-xs uppercase tracking-wider text-ink-muted block mb-2">Panic-stop hotkey</label>
+                      <label className="text-xs uppercase tracking-wider text-ink-muted block mb-2">Stop all tasks keybind</label>
                       <input value={settings.panicHotkey} onChange={e => setSettings(s => ({ ...s, panicHotkey: e.target.value }))} placeholder="e.g. Ctrl+Shift+X" className="w-full bg-card border border-cream-dark rounded-2xl px-5 py-3.5 text-ink focus:outline-none focus:border-terra transition-colors" />
                       <p className="text-xs text-ink-muted mt-2">Press this anywhere to instantly stop every running task.</p>
                       <button onClick={() => api.stopAll()} className="mt-3 w-full flex items-center justify-center gap-2 py-3 rounded-full bg-ink text-cream hover:bg-terra transition-colors font-medium text-sm"><Square size={14} strokeWidth={2.4}/> Stop all tasks now</button>
@@ -2603,8 +2645,8 @@ export default function App() {
                   <p className="text-center text-xs text-ink-muted">Changes save automatically.</p>
                 </div>
 
-                {/* category rail (right) */}
-                <nav className="w-36 sm:w-44 shrink-0 border-l border-cream-dark p-3 space-y-1 overflow-y-auto">
+                {/* category rail — horizontal strip on mobile (top), vertical rail on desktop (right) */}
+                <nav className="order-1 sm:order-2 shrink-0 sm:w-44 flex sm:flex-col gap-1 p-2 sm:p-3 border-b sm:border-b-0 sm:border-l border-cream-dark overflow-x-auto sm:overflow-y-auto">
                   {[
                     { key: 'account', label: 'Account', icon: User, show: true },
                     { key: 'customization', label: 'Customization', icon: Palette, show: true },
@@ -2614,8 +2656,8 @@ export default function App() {
                     { key: 'goals', label: 'Goals', icon: Target, show: true },
                     { key: 'general', label: 'General', icon: Clock, show: true },
                   ].filter(ct => ct.show).map(ct => (
-                    <button key={ct.key} onClick={() => setSettingsCat(ct.key)} className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors text-left ${settingsCat === ct.key ? 'bg-terra-light text-terra-dark' : 'text-ink-muted hover:text-ink hover:bg-card'}`}>
-                      <ct.icon size={16} strokeWidth={1.9}/> <span className="truncate">{ct.label}</span>
+                    <button key={ct.key} onClick={() => setSettingsCat(ct.key)} className={`shrink-0 sm:w-full flex items-center gap-2 px-3 py-2 sm:py-2.5 rounded-xl text-sm font-medium whitespace-nowrap transition-colors text-left ${settingsCat === ct.key ? 'bg-terra-light text-terra-dark' : 'text-ink-muted hover:text-ink hover:bg-card'}`}>
+                      <ct.icon size={16} strokeWidth={1.9}/> <span>{ct.label}</span>
                     </button>
                   ))}
                 </nav>

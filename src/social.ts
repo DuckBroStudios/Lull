@@ -3,7 +3,7 @@
 // features light up only once the user signs into a cloud account.
 import {
   createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut,
-  onAuthStateChanged, type User,
+  onAuthStateChanged, sendEmailVerification, reload, type User,
 } from 'firebase/auth';
 import {
   doc, getDoc, setDoc, deleteDoc, collection, getDocs, query, where, limit,
@@ -25,9 +25,23 @@ export interface FriendRequest { fromUid: string; fromUsername: string; fromName
 export interface Friend { uid: string; username: string; displayName: string; avatarType?: string; avatarPreset?: string; avatarColor?: string; avatarPhoto?: string }
 
 export const currentUid = (): string | null => auth.currentUser?.uid ?? null;
+export const currentEmail = (): string => auth.currentUser?.email ?? '';
+export const isVerified = (): boolean => !!auth.currentUser?.emailVerified;
 
 export function watchCloudAuth(cb: (user: User | null) => void): () => void {
   return onAuthStateChanged(auth, cb);
+}
+
+// Re-send the verification email to the signed-in user.
+export async function resendVerification(): Promise<void> {
+  if (auth.currentUser) await sendEmailVerification(auth.currentUser);
+}
+
+// Reload the account from Firebase and report whether the email is now verified.
+export async function refreshVerified(): Promise<boolean> {
+  if (!auth.currentUser) return false;
+  await reload(auth.currentUser);
+  return !!auth.currentUser.emailVerified;
 }
 
 // ---- profile fields the caller supplies (from local settings) ----
@@ -65,6 +79,8 @@ export async function cloudSignUp(email: string, password: string, username: str
   try {
     const cred = await createUserWithEmailAndPassword(auth, email.trim(), password);
     uid = cred.user.uid;
+    // send the "confirm it's really your email" link
+    try { await sendEmailVerification(cred.user); } catch { /* can resend later */ }
   } catch (e: any) {
     if (e?.code === 'auth/email-already-in-use') {
       const cred = await signInWithEmailAndPassword(auth, email.trim(), password);
