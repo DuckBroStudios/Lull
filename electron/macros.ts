@@ -1,6 +1,5 @@
 import { createRequire } from 'node:module'
-import { app, globalShortcut, BrowserWindow } from 'electron'
-import path from 'node:path'
+import { globalShortcut, BrowserWindow } from 'electron'
 
 // Native automation deps are heavy and platform-specific, so we load them
 // lazily at run time (via require) rather than importing them. That way the
@@ -11,7 +10,7 @@ const require = createRequire(import.meta.url)
 // ============ TYPES ============
 export interface Macro {
   id: string
-  type: 'autoclicker' | 'keypresser' | 'autotyper' | 'mousejiggler' | 'browsersearch'
+  type: 'autoclicker' | 'keypresser' | 'autotyper' | 'mousejiggler'
   name: string
   keybind?: string
   config: any
@@ -66,14 +65,6 @@ function loadNut(): any {
     return null
   }
 }
-function loadPlaywright(): any {
-  try {
-    return require('playwright')
-  } catch {
-    return null
-  }
-}
-
 const clamp = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, Number(n) || lo))
 
 function sleep(ms: number, state: RunState): Promise<void> {
@@ -88,14 +79,6 @@ function sleep(ms: number, state: RunState): Promise<void> {
       }
     }, step)
   })
-}
-
-function randomQuery(): string {
-  const chars = 'abcdefghijklmnopqrstuvwxyz0123456789'
-  const len = 5 + Math.floor(Math.random() * 8)
-  let out = ''
-  for (let i = 0; i < len; i++) out += chars[Math.floor(Math.random() * chars.length)]
-  return out
 }
 
 // ============ MACRO IMPLEMENTATIONS ============
@@ -202,80 +185,6 @@ async function runMouseJiggler(macro: Macro, state: RunState) {
   }
 }
 
-async function runBrowserSearch(macro: Macro, state: RunState) {
-  const pw = loadPlaywright()
-  if (!pw) throw new Error('Playwright not installed. Run: npm install && npx playwright install chromium')
-  const { chromium } = pw
-
-  const browser = macro.config.browser as string
-  const launchOpts: any = { headless: false }
-  if (browser === 'chrome' || browser === 'msedge') launchOpts.channel = browser
-
-  const engines: Record<string, { url: string; box: string }> = {
-    google: { url: 'https://www.google.com', box: 'textarea[name="q"], input[name="q"]' },
-    bing: { url: 'https://www.bing.com', box: 'textarea[name="q"], input[name="q"]' },
-    duckduckgo: { url: 'https://duckduckgo.com', box: 'input[name="q"]' },
-  }
-  const engine = engines[macro.config.searchEngine as string] || engines.google
-  const delayMs = clamp(macro.config.delaySeconds ?? 3, 0.5, 3600) * 1000
-
-  const persist = !!macro.config.persistProfile
-  const keepOpen = !!macro.config.keepOpenOnStop
-  let inst: any = null
-  let context: any
-  try {
-    if (persist) {
-      // A saved profile folder keeps you logged in between runs. You sign in
-      // manually the first time — Lull never stores or types your password.
-      const dir = path.join(app.getPath('userData'), 'lull-browser-profiles', macro.id)
-      context = await chromium.launchPersistentContext(dir, launchOpts)
-    } else {
-      inst = await chromium.launch(launchOpts)
-      context = await inst.newContext()
-    }
-  } catch (e: any) {
-    throw new Error(`Could not launch ${browser || 'browser'}: ${e?.message || e}`)
-  }
-  const closeAll = async () => { try { if (inst) { await inst.close() } else { await context.close() } } catch {} }
-  // when keepOpen is on, stopping the macro leaves the browser window in place
-  state.cleanup = keepOpen ? undefined : closeAll
-
-  // Optional one-time manual sign-in: open the login page and wait a grace
-  // period so you can log in yourself. With a saved profile the session sticks
-  // for future runs, so you can turn this off afterwards.
-  if (persist && macro.config.signInFirst && !state.stopped) {
-    try {
-      const p = await context.newPage()
-      const loginUrl = macro.config.searchEngine === 'bing' ? 'https://login.live.com' : engine.url
-      await p.goto(loginUrl, { waitUntil: 'domcontentloaded', timeout: 30000 })
-    } catch {}
-    await sleep(clamp(macro.config.signInGraceSeconds ?? 45, 5, 600) * 1000, state)
-  }
-
-  while (!state.stopped) {
-    let page: any
-    try {
-      page = await context.newPage()
-      await page.goto(engine.url, { waitUntil: 'domcontentloaded', timeout: 30000 })
-      const box = page.locator(engine.box).first()
-      await box.click({ timeout: 8000 })
-      await box.fill(randomQuery())
-      await box.press('Enter')
-      state.count++
-      await page.waitForTimeout(1200)
-      try { await page.locator(engine.box).first().click({ timeout: 4000 }) } catch {}
-    } catch {}
-    try {
-      const pages = context.pages()
-      if (pages.length > 6) {
-        for (const p of pages.slice(0, pages.length - 3)) { try { await p.close() } catch {} }
-      }
-    } catch {}
-    await sleep(delayMs, state)
-  }
-  if (!keepOpen) await closeAll()
-}
-
 // ============ ORCHESTRATION ============
 function runnerFor(type: Macro['type']) {
   switch (type) {
@@ -283,7 +192,6 @@ function runnerFor(type: Macro['type']) {
     case 'keypresser': return runKeyPresser
     case 'autotyper': return runAutoTyper
     case 'mousejiggler': return runMouseJiggler
-    case 'browsersearch': return runBrowserSearch
     default: return null
   }
 }

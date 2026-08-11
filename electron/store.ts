@@ -38,6 +38,15 @@ export interface UserSettings {
   pattern: string
   music: boolean
   autoAppIcon: boolean
+  avatarType: 'monogram' | 'preset' | 'photo'
+  avatarPhoto: string
+  avatarPreset: string
+  avatarColor: string
+  profileVisible: boolean
+  timezone: string
+  autoTimezone: boolean
+  unlockedIcons: string[]
+  dashboardOrder: string[]
 }
 
 interface StoreFile {
@@ -63,6 +72,15 @@ const DEFAULT_SETTINGS: UserSettings = {
   pattern: 'none',
   music: false,
   autoAppIcon: false,
+  avatarType: 'monogram',
+  avatarPhoto: '',
+  avatarPreset: 'terra',
+  avatarColor: '#C8553D',
+  profileVisible: false,
+  timezone: 'auto',
+  autoTimezone: true,
+  unlockedIcons: [],
+  dashboardOrder: [],
 }
 
 function storePath(): string {

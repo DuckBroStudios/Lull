@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Plus, X, Image as ImageIcon, Trash2, AlarmClock, Bell, Clock, Settings, LogOut, User, Moon, Sun, Volume2, VolumeX, Eye, EyeOff, Zap, Play, Square, MousePointerClick, Keyboard, Type, Move, Globe, Pencil, ChevronLeft, AlertTriangle, Music, Pause, Lock, Flame, Trophy, Target, TrendingUp, Gift, BarChart3, Sparkles } from 'lucide-react';
+import { Plus, X, Image as ImageIcon, Trash2, AlarmClock, Bell, Clock, Settings, LogOut, User, Moon, Sun, Volume2, VolumeX, Eye, EyeOff, Zap, Play, Square, MousePointerClick, Keyboard, Type, Move, Pencil, ChevronLeft, AlertTriangle, Music, Pause, Lock, Flame, Trophy, Target, TrendingUp, Gift, BarChart3, Sparkles, Home, Palette, Upload, ZoomIn, ZoomOut, Users, Search, UserPlus, Check } from 'lucide-react';
 import { isNative, requestReminderPermission, syncReminderNotifications } from './notifications';
+import * as social from './social';
+import type { CloudProfile, Friend, FriendRequest } from './social';
 import { registerPlugin } from '@capacitor/core';
 
 // detect if this window is the alert popup
@@ -32,6 +34,18 @@ interface UserSettings {
   pattern: string;
   music: boolean;
   autoAppIcon: boolean;
+  // profile
+  avatarType: 'monogram' | 'preset' | 'photo';
+  avatarPhoto: string;   // dataURL when avatarType === 'photo'
+  avatarPreset: string;  // preset background key when 'preset'/'monogram'
+  avatarColor: string;   // accent / letter colour
+  profileVisible: boolean; // show avatar to friends (off by default; for future social)
+  // time
+  timezone: string;      // IANA name, or 'auto'
+  autoTimezone: boolean;
+  // unlocks + layout
+  unlockedIcons: string[];   // seasonal/holiday app icons earned by completing reminders
+  dashboardOrder: string[];  // edit-mode ordering of home dashboard blocks
 }
 interface SessionUser {
   username: string;
@@ -57,6 +71,15 @@ const DEFAULT_SETTINGS: UserSettings = {
   pattern: 'none',
   music: false,
   autoAppIcon: false,
+  avatarType: 'monogram',
+  avatarPhoto: '',
+  avatarPreset: 'terra',
+  avatarColor: '#C8553D',
+  profileVisible: false,
+  timezone: 'auto',
+  autoTimezone: true,
+  unlockedIcons: [],
+  dashboardOrder: [],
 };
 
 // ============ DELIGHT: backgrounds, seasons, sound packs, greeting, icons ============
@@ -355,7 +378,7 @@ function publicLocal(acc: any): SessionUser {
 }
 
 // ============ MACRO / TASK MODEL ============
-type MacroType = 'autoclicker' | 'browsersearch' | 'keypresser' | 'autotyper' | 'mousejiggler';
+type MacroType = 'autoclicker' | 'keypresser' | 'autotyper' | 'mousejiggler';
 interface Macro {
   id: string;
   type: MacroType;
@@ -366,7 +389,6 @@ interface Macro {
 
 const PRESETS: { type: MacroType; name: string; blurb: string; icon: any; keybind: string; engine: 'input' | 'browser' }[] = [
   { type: 'autoclicker', name: 'Auto Clicker', blurb: 'Rapid-fire clicks, or a hold-then-release cycle, at a speed you set. Toggle with a global hotkey.', icon: MousePointerClick, keybind: 'F6', engine: 'input' },
-  { type: 'browsersearch', name: 'Browser Searcher', blurb: 'Opens a browser, then searches random letters + numbers in a new tab on a loop. Keeps going even while minimized.', icon: Globe, keybind: 'F7', engine: 'browser' },
   { type: 'keypresser', name: 'Key Presser', blurb: 'Taps a key you choose over and over at a set interval. Great for anti-idle or spamming an action.', icon: Keyboard, keybind: 'F8', engine: 'input' },
   { type: 'autotyper', name: 'Auto Typer', blurb: 'Types a phrase for you — once, or on repeat. Useful for testing forms and chats.', icon: Type, keybind: 'F9', engine: 'input' },
   { type: 'mousejiggler', name: 'Mouse Jiggler', blurb: 'Nudges the mouse every so often so your machine stays awake and shows as active.', icon: Move, keybind: 'F10', engine: 'input' },
@@ -375,7 +397,6 @@ const PRESETS: { type: MacroType; name: string; blurb: string; icon: any; keybin
 function defaultConfig(type: MacroType): any {
   switch (type) {
     case 'autoclicker': return { button: 'left', mode: 'rapid', cps: 10, holdSeconds: 1, releaseSeconds: 1 };
-    case 'browsersearch': return { browser: 'chrome', searchEngine: 'google', delaySeconds: 3, persistProfile: false, signInFirst: false, signInGraceSeconds: 45, keepOpenOnStop: false };
     case 'keypresser': return { key: 'Space', intervalMs: 1000 };
     case 'autotyper': return { text: 'Hello from Lull', pressEnter: true, repeat: true, intervalMs: 1000, startDelayMs: 1500 };
     case 'mousejiggler': return { intervalSeconds: 30, distance: 5 };
@@ -405,8 +426,6 @@ function taskSummary(t: Macro): string {
       return c.mode === 'hold'
         ? `Hold ${c.holdSeconds}s · release ${c.releaseSeconds}s · ${c.button} button`
         : `${c.cps} clicks/sec · ${c.button} button`;
-    case 'browsersearch':
-      return `${c.browser} · ${c.searchEngine} · new search every ${c.delaySeconds}s`;
     case 'keypresser':
       return `Key "${c.key}" · every ${c.intervalMs}ms`;
     case 'autotyper':
@@ -421,7 +440,6 @@ function taskSummary(t: Macro): string {
 function statLabel(type: MacroType): string {
   switch (type) {
     case 'autoclicker': return 'clicks';
-    case 'browsersearch': return 'searches';
     case 'keypresser': return 'presses';
     case 'autotyper': return 'types';
     case 'mousejiggler': return 'jiggles';
@@ -487,11 +505,15 @@ interface GameState {
   history: Record<string, DayStat>; // keyed by 'YYYY-MM-DD'
   reward: CustomReward | null;
   celebratedDay: string;        // 'YYYY-MM-DD' confetti last fired
+  iconProgress: Record<string, number>; // completions per season/holiday, for icon unlocks
 }
+
+// Completions in a season/holiday needed to permanently unlock its app icon.
+const ICON_UNLOCK_THRESHOLD = 3;
 
 const DEFAULT_GAME: GameState = {
   xp: 0, completedTotal: 0, missedTotal: 0, streak: 0, bestStreak: 0,
-  lastStreakDay: '', achievements: [], history: {}, reward: null, celebratedDay: '',
+  lastStreakDay: '', achievements: [], history: {}, reward: null, celebratedDay: '', iconProgress: {},
 };
 
 const dayKey = (ts: number): string => {
@@ -570,6 +592,454 @@ const CONFETTI_PIECES = Array.from({ length: 70 }, (_, i) => ({
   delay: (i % 10) * 0.08,
 }));
 
+// ============================================================
+// PROFILE AVATAR — photo, preset gradient, or coloured monogram.
+// ============================================================
+const AVATAR_PRESETS: Record<string, string> = {
+  terra:  'linear-gradient(135deg,#C8553D,#E4A05B)',
+  forest: 'linear-gradient(135deg,#6B8F71,#A9C3A0)',
+  dusk:   'linear-gradient(135deg,#8C6BA9,#C9A0EA)',
+  ocean:  'linear-gradient(135deg,#3D7EA6,#7FBFD8)',
+  rose:   'linear-gradient(135deg,#C85B7C,#E9A0BC)',
+  gold:   'linear-gradient(135deg,#D98E48,#EAD7B7)',
+  mint:   'linear-gradient(135deg,#4FA890,#9FE0CF)',
+  ink:    'linear-gradient(135deg,#2B2B2B,#4A4A4A)',
+};
+
+function Avatar({ settings, name, size }: { settings: UserSettings; name: string; size: number }) {
+  const letter = ((settings.displayName || name || '?').trim().charAt(0) || '?').toUpperCase();
+  const common: React.CSSProperties = {
+    width: size, height: size, borderRadius: '50%', flexShrink: 0, overflow: 'hidden',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+  };
+  if (settings.avatarType === 'photo' && settings.avatarPhoto) {
+    return <span style={common}><img src={settings.avatarPhoto} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /></span>;
+  }
+  if (settings.avatarType === 'monogram') {
+    return (
+      <span style={{ ...common, background: settings.avatarColor || '#C8553D' }}>
+        <span style={{ fontSize: size * 0.46, fontWeight: 700, color: '#FFF8EE', lineHeight: 1 }}>{letter}</span>
+      </span>
+    );
+  }
+  const bg = AVATAR_PRESETS[settings.avatarPreset] || AVATAR_PRESETS.terra;
+  return (
+    <span style={{ ...common, background: bg }}>
+      <span style={{ fontSize: size * 0.46, fontWeight: 700, color: '#FFF8EE', lineHeight: 1, WebkitTextStroke: '1px rgba(0,0,0,0.18)' }}>{letter}</span>
+    </span>
+  );
+}
+
+// ============================================================
+// NOTEPAD — a starfield you tap to drop notes. Each note is a
+// gradient card (1+ colours) and nearby notes link up into a
+// constellation with soft grey lines.
+// ============================================================
+interface Note { id: string; x: number; y: number; text: string; colors: string[] }
+
+const NOTE_PALETTE = ['#C8553D', '#E4A05B', '#EAD7B7', '#6B8F71', '#3D7EA6', '#8C6BA9', '#C85B7C', '#4FA890'];
+
+function gradientCss(colors: string[]): string {
+  if (!colors || colors.length === 0) return '#C8553D';
+  if (colors.length === 1) return colors[0];
+  return `linear-gradient(135deg, ${colors.join(', ')})`;
+}
+
+function NotepadPanel({ notes, setNotes, theme, onClose }: {
+  notes: Note[];
+  setNotes: React.Dispatch<React.SetStateAction<Note[]>>;
+  theme: string;
+  onClose: () => void;
+}) {
+  const canvasRef = useRef<HTMLDivElement>(null);
+  const [editing, setEditing] = useState<string | null>(null);
+  const [colorMode, setColorMode] = useState<'menu' | 'solid' | 'gradient'>('menu');
+  const dragRef = useRef<{ id: string } | null>(null);
+  const dot = theme === 'dark' ? 'rgba(255,255,255,0.30)' : 'rgba(31,36,33,0.22)';
+
+  // pan + zoom view. viewRef mirrors state so pointer handlers read live values.
+  const [view, setViewState] = useState({ scale: 1, tx: 0, ty: 0 });
+  const viewRef = useRef(view);
+  const setView = (v: { scale: number; tx: number; ty: number }) => { viewRef.current = v; setViewState(v); };
+  const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
+
+  const pointers = useRef<Map<number, { x: number; y: number }>>(new Map());
+  const gesture = useRef<any>(null);
+
+  const canvasXY = (clientX: number, clientY: number) => {
+    const r = canvasRef.current?.getBoundingClientRect();
+    return { sx: clientX - (r?.left || 0), sy: clientY - (r?.top || 0), w: r?.width || 1, h: r?.height || 1 };
+  };
+  // screen point → world fraction (accounts for pan + zoom)
+  const worldFrac = (clientX: number, clientY: number) => {
+    const { sx, sy, w, h } = canvasXY(clientX, clientY);
+    const v = viewRef.current;
+    return { x: (sx - v.tx) / (w * v.scale), y: (sy - v.ty) / (h * v.scale) };
+  };
+  const zoomAround = (sx: number, sy: number, factor: number) => {
+    const v = viewRef.current;
+    const ns = clamp(v.scale * factor, 0.35, 3.5);
+    const k = ns / v.scale;
+    setView({ scale: ns, tx: sx - (sx - v.tx) * k, ty: sy - (sy - v.ty) * k });
+  };
+  const zoomButton = (factor: number) => {
+    const r = canvasRef.current?.getBoundingClientRect();
+    zoomAround((r?.width || 0) / 2, (r?.height || 0) / 2, factor);
+  };
+
+  const addNote = (fx: number, fy: number) => {
+    const id = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    setNotes(ns => [...ns, { id, x: fx, y: fy, text: '', colors: [NOTE_PALETTE[ns.length % NOTE_PALETTE.length]] }]);
+    // colour editor stays closed until the pencil is tapped
+  };
+
+  const onWheel = (e: React.WheelEvent) => {
+    const { sx, sy } = canvasXY(e.clientX, e.clientY);
+    zoomAround(sx, sy, e.deltaY < 0 ? 1.12 : 1 / 1.12);
+  };
+
+  const onPointerDown = (e: React.PointerEvent) => {
+    pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    const v = viewRef.current;
+    if (pointers.current.size === 2) {
+      const [p, q] = [...pointers.current.values()];
+      const { sx, sy } = canvasXY((p.x + q.x) / 2, (p.y + q.y) / 2);
+      gesture.current = { mode: 'pinch', startDist: Math.hypot(p.x - q.x, p.y - q.y), startScale: v.scale, startTx: v.tx, startTy: v.ty, midX: sx, midY: sy };
+    } else {
+      gesture.current = { mode: 'tap', sx: e.clientX, sy: e.clientY, startTx: v.tx, startTy: v.ty, moved: false };
+    }
+  };
+
+  const onPointerMove = (e: React.PointerEvent) => {
+    if (dragRef.current) { const f = worldFrac(e.clientX, e.clientY); setNotes(ns => ns.map(n => (n.id === dragRef.current!.id ? { ...n, x: f.x, y: f.y } : n))); return; }
+    if (pointers.current.has(e.pointerId)) pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    const g = gesture.current;
+    if (!g) return;
+    const v = viewRef.current;
+    if (g.mode === 'pinch' && pointers.current.size >= 2) {
+      const [p, q] = [...pointers.current.values()];
+      const dist = Math.hypot(p.x - q.x, p.y - q.y);
+      const ns = clamp(g.startScale * (dist / g.startDist), 0.35, 3.5);
+      const k = ns / g.startScale;
+      setView({ scale: ns, tx: g.midX - (g.midX - g.startTx) * k, ty: g.midY - (g.midY - g.startTy) * k });
+    } else if (g.mode === 'tap' || g.mode === 'pan') {
+      const dx = e.clientX - g.sx, dy = e.clientY - g.sy;
+      if (!g.moved && Math.hypot(dx, dy) > 6) { g.moved = true; g.mode = 'pan'; }
+      if (g.mode === 'pan') setView({ scale: v.scale, tx: g.startTx + dx, ty: g.startTy + dy });
+    }
+  };
+
+  const onPointerUp = (e: React.PointerEvent) => {
+    pointers.current.delete(e.pointerId);
+    if (dragRef.current) { dragRef.current = null; return; }
+    const g = gesture.current;
+    if (g && g.mode === 'tap' && !g.moved) { const f = worldFrac(g.sx, g.sy); addNote(f.x, f.y); }
+    if (pointers.current.size === 0) gesture.current = null;
+  };
+
+  const patch = (id: string, fn: (n: Note) => Note) => setNotes(ns => ns.map(n => (n.id === id ? fn(n) : n)));
+
+  // connect every note to every other note → a full constellation web
+  const edges: number[][] = [];
+  for (let i = 0; i < notes.length; i++) {
+    for (let j = i + 1; j < notes.length; j++) edges.push([i, j]);
+  }
+  const bg = theme === 'dark' ? '#1B1712' : '#F3EBDD';
+
+  return (
+    <div className="fixed inset-0 z-40 animate-fade-in">
+      {/* fullscreen blurred starfield canvas */}
+      <div
+        ref={canvasRef}
+        onWheel={onWheel}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerCancel={onPointerUp}
+        className="absolute inset-0 overflow-hidden"
+        style={{
+          backgroundColor: bg,
+          backgroundImage: `radial-gradient(${dot} 1.3px, transparent 1.4px)`,
+          backgroundSize: '26px 26px',
+          touchAction: 'none',
+          cursor: gesture.current?.mode === 'pan' ? 'grabbing' : 'crosshair',
+        }}
+      >
+        {/* world layer (pans + zooms) */}
+        <div className="absolute top-0 left-0 w-full h-full" style={{ transform: `translate(${view.tx}px, ${view.ty}px) scale(${view.scale})`, transformOrigin: '0 0' }}>
+          <svg className="absolute inset-0 w-full h-full pointer-events-none" preserveAspectRatio="none" viewBox="0 0 100 100">
+            {edges.map(([a, b], k) => (
+              <line key={k} x1={notes[a].x * 100} y1={notes[a].y * 100} x2={notes[b].x * 100} y2={notes[b].y * 100} stroke="rgba(130,130,130,0.6)" strokeWidth={1.2} strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+            ))}
+          </svg>
+
+          {notes.map(n => (
+            <div
+              key={n.id}
+              className="absolute"
+              style={{ left: `${n.x * 100}%`, top: `${n.y * 100}%`, transform: 'translate(-50%,-50%)', width: 248 }}
+              onClick={e => e.stopPropagation()}
+              onPointerDown={e => e.stopPropagation()}
+            >
+              <div className="rounded-2xl shadow-lg overflow-hidden border border-black/10" style={{ background: gradientCss(n.colors) }}>
+                <div
+                  className="flex items-center justify-between px-2.5 py-2 cursor-move select-none"
+                  onPointerDown={e => { e.stopPropagation(); dragRef.current = { id: n.id }; }}
+                >
+                  <button onClick={e => { e.stopPropagation(); const open = editing === n.id; setEditing(open ? null : n.id); setColorMode('menu'); }} className="w-7 h-7 rounded-full bg-white/85 flex items-center justify-center text-ink hover:bg-white transition-colors" aria-label="Edit colour"><Pencil size={14} strokeWidth={2}/></button>
+                  <button onClick={e => { e.stopPropagation(); setNotes(ns => ns.filter(x => x.id !== n.id)); if (editing === n.id) setEditing(null); }} className="w-7 h-7 rounded-full bg-white/60 flex items-center justify-center text-ink hover:bg-white transition-colors" aria-label="Delete note"><X size={14} strokeWidth={2}/></button>
+                </div>
+                <textarea
+                  value={n.text}
+                  onChange={e => patch(n.id, x => ({ ...x, text: e.target.value }))}
+                  onClick={e => e.stopPropagation()}
+                  onPointerDown={e => e.stopPropagation()}
+                  placeholder="Write…"
+                  className="w-full h-36 resize-none bg-white/85 text-ink text-[15px] p-3 focus:outline-none"
+                />
+              </div>
+
+              {editing === n.id && (
+                <div className="mt-2 bg-cream border border-cream-dark rounded-2xl p-4 shadow-xl" style={{ width: 288 }} onClick={e => e.stopPropagation()} onPointerDown={e => e.stopPropagation()}>
+                  <div className="grid grid-cols-2 gap-2 mb-3">
+                    <button
+                      onClick={() => { patch(n.id, x => ({ ...x, colors: [x.colors[0] || '#C8553D'] })); setColorMode('solid'); }}
+                      className={`py-2.5 rounded-xl border-2 text-sm font-medium transition-all ${colorMode === 'solid' ? 'border-terra text-terra bg-terra-light' : 'border-cream-dark text-ink-muted hover:border-terra'}`}
+                    >
+                      Change colour
+                    </button>
+                    <button
+                      onClick={() => { patch(n.id, x => ({ ...x, colors: x.colors.length >= 2 ? x.colors : [x.colors[0] || '#C8553D', NOTE_PALETTE[(x.colors.length + 1) % NOTE_PALETTE.length]] })); setColorMode('gradient'); }}
+                      className={`py-2.5 rounded-xl border-2 text-sm font-medium transition-all ${colorMode === 'gradient' ? 'border-terra text-terra bg-terra-light' : 'border-cream-dark text-ink-muted hover:border-terra'}`}
+                    >
+                      Add gradient
+                    </button>
+                  </div>
+
+                  {colorMode === 'solid' && (
+                    <input
+                      type="color"
+                      value={n.colors[0] || '#C8553D'}
+                      onChange={e => patch(n.id, x => ({ ...x, colors: [e.target.value] }))}
+                      className="w-full h-12 rounded-lg border border-cream-dark bg-transparent cursor-pointer p-0"
+                      aria-label="Pick note colour"
+                    />
+                  )}
+
+                  {colorMode === 'gradient' && (
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2.5">
+                        {n.colors.map((c, ci) => (
+                          <div key={ci} className="relative">
+                            <input type="color" value={c} onChange={e => patch(n.id, x => ({ ...x, colors: x.colors.map((cc, k) => (k === ci ? e.target.value : cc)) }))} className="w-10 h-10 rounded-md border border-cream-dark bg-transparent cursor-pointer p-0" />
+                            {n.colors.length > 1 && (
+                              <button onClick={() => patch(n.id, x => ({ ...x, colors: x.colors.filter((_, k) => k !== ci) }))} className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-ink text-cream text-[9px] leading-none flex items-center justify-center" aria-label="Remove colour">×</button>
+                            )}
+                          </div>
+                        ))}
+                        {n.colors.length < 5 && (
+                          <button onClick={() => patch(n.id, x => ({ ...x, colors: [...x.colors, NOTE_PALETTE[x.colors.length % NOTE_PALETTE.length]] }))} className="w-10 h-10 rounded-md border-2 border-dashed border-cream-dark text-ink-muted flex items-center justify-center hover:border-terra transition-colors" aria-label="Add colour">+</button>
+                        )}
+                      </div>
+                      <div className="h-8 rounded-lg mt-3 border border-black/5" style={{ background: gradientCss(n.colors) }} />
+                      <p className="text-[11px] text-ink-muted mt-2">Add colours for effects like red → orange → yellow.</p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+
+        {notes.length === 0 && (
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none text-center px-8">
+            <div>
+              <Sparkles size={28} className="text-terra mx-auto mb-3" strokeWidth={1.5}/>
+              <p className="font-display text-2xl italic text-ink-muted">A quiet sky, waiting for stars</p>
+              <p className="text-sm text-ink-muted mt-2">Tap anywhere to place your first note</p>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* floating title + close (top-right, clear of the Home button) */}
+      <div className="absolute top-5 right-5 flex items-center gap-3" style={{ marginTop: 'env(safe-area-inset-top)' }}>
+        <span className="hidden sm:flex items-center gap-2 bg-card/80 backdrop-blur border border-cream-dark rounded-full px-4 py-2 text-sm text-ink"><Pencil size={15} className="text-terra" strokeWidth={2}/> Notepad</span>
+        <button onClick={onClose} className="w-11 h-11 rounded-full bg-card border border-cream-dark shadow-lg flex items-center justify-center text-ink-muted hover:text-terra hover:border-terra transition-colors" aria-label="Close notepad"><X size={20}/></button>
+      </div>
+
+      {/* zoom controls (bottom-right) */}
+      <div className="absolute bottom-6 right-5 flex flex-col items-center gap-2" style={{ marginBottom: 'env(safe-area-inset-bottom)' }}>
+        <button onClick={() => zoomButton(1.2)} className="w-11 h-11 rounded-full bg-card border border-cream-dark shadow-lg flex items-center justify-center text-ink hover:text-terra hover:border-terra transition-colors" aria-label="Zoom in"><ZoomIn size={18} strokeWidth={2}/></button>
+        <button onClick={() => setView({ scale: 1, tx: 0, ty: 0 })} className="w-11 h-11 rounded-full bg-card border border-cream-dark shadow-lg flex items-center justify-center text-ink-muted hover:text-terra hover:border-terra transition-colors text-[10px] font-semibold" aria-label="Reset zoom">{Math.round(view.scale * 100)}%</button>
+        <button onClick={() => zoomButton(1 / 1.2)} className="w-11 h-11 rounded-full bg-card border border-cream-dark shadow-lg flex items-center justify-center text-ink hover:text-terra hover:border-terra transition-colors" aria-label="Zoom out"><ZoomOut size={18} strokeWidth={2}/></button>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// FRIENDS — optional cloud account, user search, requests, list.
+// Backed by src/social.ts (Firebase). Fully separate from local login.
+// ============================================================
+function FriendsPanel({ localUsername, settings, onClose }: {
+  localUsername: string;
+  settings: UserSettings;
+  onClose: () => void;
+}) {
+  const fInput = 'w-full bg-card border border-cream-dark rounded-2xl px-4 py-3 text-ink focus:outline-none focus:border-terra transition-colors';
+  const [me, setMe] = useState<CloudProfile | null>(null);
+  const [ready, setReady] = useState(false);
+  const [mode, setMode] = useState<'in' | 'up'>('in');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [handle, setHandle] = useState(localUsername);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [tab, setTab] = useState<'friends' | 'requests' | 'find'>('friends');
+  const [term, setTerm] = useState('');
+  const [results, setResults] = useState<CloudProfile[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [sentTo, setSentTo] = useState<string[]>([]);
+  const [requests, setRequests] = useState<FriendRequest[]>([]);
+  const [friends, setFriends] = useState<Friend[]>([]);
+
+  const profileInput = (): social.ProfileInput => ({
+    displayName: settings.displayName || localUsername,
+    avatarType: settings.avatarType,
+    avatarPreset: settings.avatarPreset,
+    avatarColor: settings.avatarColor,
+    avatarPhoto: settings.avatarPhoto,
+    profileVisible: settings.profileVisible,
+  });
+  const avatarOf = (p: any): any => ({
+    avatarType: p.avatarType || 'monogram', avatarPhoto: p.avatarPhoto || '',
+    avatarPreset: p.avatarPreset || 'terra', avatarColor: p.avatarColor || '#C8553D',
+    displayName: p.displayName || p.username || '?',
+  });
+
+  const refresh = async (uid: string) => {
+    try {
+      const [rq, fr] = await Promise.all([social.listIncomingRequests(uid), social.listFriends(uid)]);
+      setRequests(rq); setFriends(fr);
+    } catch { /* offline */ }
+  };
+
+  useEffect(() => {
+    const off = social.watchCloudAuth(async (u) => {
+      if (u) {
+        try {
+          let prof = await social.getProfile(u.uid);
+          if (!prof) { await social.syncProfile(u.uid, (localUsername || 'user').toLowerCase(), profileInput()); prof = await social.getProfile(u.uid); }
+          setMe(prof);
+          if (prof) refresh(prof.uid);
+        } catch { setMe(null); }
+      } else setMe(null);
+      setReady(true);
+    });
+    return () => off();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const doAuth = async () => {
+    setError(''); setBusy(true);
+    try {
+      if (mode === 'up') { const prof = await social.cloudSignUp(email, password, handle, profileInput()); setMe(prof); refresh(prof.uid); }
+      else { const prof = await social.cloudSignIn(email, password); setMe(prof); if (prof) refresh(prof.uid); }
+    } catch (e: any) { setError(e?.message || 'Something went wrong.'); }
+    finally { setBusy(false); }
+  };
+  const doSignOut = async () => { try { await social.cloudSignOut(); } catch { /* ignore */ } setMe(null); setFriends([]); setRequests([]); setResults([]); };
+  const doSearch = async () => {
+    if (!me) return;
+    setSearching(true);
+    try { setResults(await social.searchUsers(term, me.uid)); } catch { setResults([]); } finally { setSearching(false); }
+  };
+  const doSend = async (to: CloudProfile) => { if (!me) return; try { await social.sendFriendRequest(me, to.uid); setSentTo(s => [...s, to.uid]); } catch (e: any) { setError(e?.message || 'Could not send request.'); } };
+  const doAccept = async (r: FriendRequest) => { if (!me) return; try { await social.acceptFriendRequest(me, r); refresh(me.uid); } catch { /* ignore */ } };
+  const doDecline = async (r: FriendRequest) => { if (!me) return; try { await social.declineFriendRequest(me.uid, r.fromUid); setRequests(rs => rs.filter(x => x.fromUid !== r.fromUid)); } catch { /* ignore */ } };
+  const doRemove = async (f: Friend) => { if (!me) return; try { await social.removeFriend(me.uid, f.uid); setFriends(fs => fs.filter(x => x.uid !== f.uid)); } catch { /* ignore */ } };
+
+  return (
+    <div className="fixed inset-0 z-40 flex items-center justify-center p-3 sm:p-6">
+      <div className="bg-cream rounded-3xl w-full max-w-lg h-[86vh] border border-cream-dark shadow-2xl overflow-hidden flex flex-col animate-slide-down" style={{ boxShadow: '0 30px 80px -20px rgba(31,36,33,0.4)' }}>
+        <div className="flex items-center justify-between px-6 py-4 border-b border-cream-dark shrink-0">
+          <div className="flex items-center gap-2"><Users size={18} className="text-terra" strokeWidth={1.9}/><h2 className="font-display text-xl text-ink font-medium">Friends</h2></div>
+          <button onClick={onClose} className="text-ink-muted hover:text-ink transition-colors p-1.5" aria-label="Close friends"><X size={20}/></button>
+        </div>
+
+        {!ready ? (
+          <div className="flex-1 flex items-center justify-center text-ink-muted">Connecting…</div>
+        ) : !me ? (
+          <div className="flex-1 overflow-y-auto p-6">
+            <p className="text-ink-muted text-sm mb-5">Friends use a free cloud account, separate from your local login. {mode === 'up' ? 'Create one' : 'Sign in'} to find people and share.</p>
+            <div className="space-y-3">
+              {mode === 'up' && <input value={handle} onChange={e => setHandle(e.target.value)} placeholder="Username (how friends find you)" className={fInput} />}
+              <input value={email} onChange={e => setEmail(e.target.value)} type="email" placeholder="Email" className={fInput} />
+              <input value={password} onChange={e => setPassword(e.target.value)} type="password" placeholder="Password" className={fInput} />
+              {error && <p className="text-sm text-terra-dark bg-terra-light rounded-xl px-4 py-2.5">{error}</p>}
+              <button onClick={doAuth} disabled={busy} className="w-full py-3.5 rounded-full bg-terra text-cream font-medium hover:bg-terra-dark disabled:opacity-50 transition-colors">{busy ? 'Please wait…' : mode === 'up' ? 'Create account' : 'Sign in'}</button>
+            </div>
+            <button onClick={() => { setMode(mode === 'up' ? 'in' : 'up'); setError(''); }} className="mt-4 text-sm text-terra hover:text-terra-dark transition-colors">{mode === 'up' ? 'Already have a cloud account? Sign in' : 'New here? Create a cloud account'}</button>
+          </div>
+        ) : (
+          <div className="flex-1 flex flex-col min-h-0">
+            <div className="flex items-center gap-3 px-6 py-3 border-b border-cream-dark">
+              <Avatar settings={avatarOf(me)} name={me.username} size={36} />
+              <div className="min-w-0 flex-1"><div className="font-medium text-ink truncate">{me.displayName}</div><div className="text-xs text-ink-muted">@{me.username}</div></div>
+              <button onClick={doSignOut} className="text-xs text-ink-muted hover:text-terra transition-colors">Sign out</button>
+            </div>
+            <div className="flex gap-1 px-4 pt-3">
+              {([['friends', `Friends (${friends.length})`], ['requests', `Requests (${requests.length})`], ['find', 'Find']] as [typeof tab, string][]).map(([k, l]) => (
+                <button key={k} onClick={() => setTab(k)} className={`px-3 py-2 rounded-xl text-sm font-medium transition-colors ${tab === k ? 'bg-terra-light text-terra-dark' : 'text-ink-muted hover:text-ink'}`}>{l}</button>
+              ))}
+            </div>
+            <div className="flex-1 overflow-y-auto p-4 space-y-2">
+              {tab === 'find' && (<>
+                <div className="flex gap-2">
+                  <input value={term} onChange={e => setTerm(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') doSearch(); }} placeholder="Search by username" className={fInput} />
+                  <button onClick={doSearch} className="px-4 rounded-2xl bg-ink text-cream shrink-0" aria-label="Search"><Search size={16} /></button>
+                </div>
+                {searching && <p className="text-sm text-ink-muted">Searching…</p>}
+                {results.map(u => (
+                  <div key={u.uid} className="flex items-center gap-3 bg-card border border-cream-dark rounded-2xl p-3">
+                    <Avatar settings={avatarOf(u)} name={u.username} size={38} />
+                    <div className="flex-1 min-w-0"><div className="font-medium text-ink truncate">{u.displayName}</div><div className="text-xs text-ink-muted">@{u.username}</div></div>
+                    {friends.some(f => f.uid === u.uid) ? <span className="text-xs text-ink-muted">Friends</span>
+                      : sentTo.includes(u.uid) ? <span className="text-xs text-ink-muted">Sent</span>
+                      : <button onClick={() => doSend(u)} className="flex items-center gap-1 text-sm text-terra border border-terra-light hover:border-terra rounded-full px-3 py-1.5 transition-colors"><UserPlus size={14} /> Add</button>}
+                  </div>
+                ))}
+                {!searching && term && results.length === 0 && <p className="text-sm text-ink-muted">No one found with that username.</p>}
+              </>)}
+              {tab === 'requests' && (<>
+                {requests.length === 0 && <p className="text-sm text-ink-muted">No pending requests.</p>}
+                {requests.map(r => (
+                  <div key={r.fromUid} className="flex items-center gap-3 bg-card border border-cream-dark rounded-2xl p-3">
+                    <div className="flex-1 min-w-0"><div className="font-medium text-ink truncate">{r.fromName}</div><div className="text-xs text-ink-muted">@{r.fromUsername}</div></div>
+                    <button onClick={() => doAccept(r)} className="w-8 h-8 rounded-full bg-terra text-cream flex items-center justify-center" aria-label="Accept"><Check size={15} /></button>
+                    <button onClick={() => doDecline(r)} className="w-8 h-8 rounded-full bg-cream-dark text-ink flex items-center justify-center" aria-label="Decline"><X size={15} /></button>
+                  </div>
+                ))}
+              </>)}
+              {tab === 'friends' && (<>
+                {friends.length === 0 && <p className="text-sm text-ink-muted">No friends yet — use Find to add some.</p>}
+                {friends.map(f => (
+                  <div key={f.uid} className="flex items-center gap-3 bg-card border border-cream-dark rounded-2xl p-3">
+                    <Avatar settings={avatarOf(f)} name={f.username} size={38} />
+                    <div className="flex-1 min-w-0"><div className="font-medium text-ink truncate">{f.displayName}</div><div className="text-xs text-ink-muted">@{f.username}</div></div>
+                    <button onClick={() => doRemove(f)} className="text-ink-muted hover:text-terra transition-colors p-1" aria-label="Remove friend"><Trash2 size={15} /></button>
+                  </div>
+                ))}
+              </>)}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
   // ============ AUTH STATE ============
   const [user, setUser] = useState<SessionUser | null>(null);
@@ -583,6 +1053,16 @@ export default function App() {
   const [toast, setToast] = useState<string>('');       // achievement / unlock toast
   const [confettiOn, setConfettiOn] = useState(false);   // one-shot celebration burst
   const [rewardBanner, setRewardBanner] = useState<string>(''); // custom-reward achieved
+
+  // ============ NAVIGATION (sidebar + windowed panels) ============
+  const [showSidebar, setShowSidebar] = useState(false);
+  const [showNotepad, setShowNotepad] = useState(false);
+  const [showFriends, setShowFriends] = useState(false);
+  const [notes, setNotes] = useState<Note[]>([]);
+  const [settingsCat, setSettingsCat] = useState('account'); // active settings category
+  const [editMode, setEditMode] = useState(false);
+  const anyPanelOpen = showSettings || showStats || showNotepad || showFriends;
+  const closeAllPanels = () => { setShowSettings(false); setShowStats(false); setShowNotepad(false); setShowFriends(false); };
 
   // ============ TASK / MACRO STATE ============
   const [tasks, setTasks] = useState<Macro[]>([]);
@@ -608,9 +1088,19 @@ export default function App() {
   const [repeat, setRepeat] = useState('none');
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
   const musicRef = useRef<HTMLAudioElement>(null);
   const remindersRef = useRef<any[]>([]); // latest reminders, for stable IPC callbacks
   useEffect(() => { remindersRef.current = reminders; }, [reminders]);
+
+  // profile photo upload → dataURL stored in settings
+  const onAvatarFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    const r = new FileReader();
+    r.onload = () => setSettings(s => ({ ...s, avatarType: 'photo', avatarPhoto: r.result as string }));
+    r.readAsDataURL(f);
+  };
 
   // ============ EFFECTS ============
 
@@ -661,6 +1151,10 @@ export default function App() {
       const raw = localStorage.getItem(`lull-game-${u.username.toLowerCase()}`);
       setGame(raw ? { ...DEFAULT_GAME, ...JSON.parse(raw) } : DEFAULT_GAME);
     } catch { setGame(DEFAULT_GAME); }
+    try {
+      const rawN = localStorage.getItem(`lull-notes-${u.username.toLowerCase()}`);
+      setNotes(rawN ? JSON.parse(rawN) : []);
+    } catch { setNotes([]); }
     setLoaded(true);
   };
 
@@ -682,20 +1176,41 @@ export default function App() {
     try { localStorage.setItem(`lull-game-${user.username.toLowerCase()}`, JSON.stringify(game)); } catch { /* quota */ }
   }, [game, loaded]);
 
+  // persist notepad notes to localStorage whenever they change
+  useEffect(() => {
+    if (!loaded || isAlertWindow || !user) return;
+    try { localStorage.setItem(`lull-notes-${user.username.toLowerCase()}`, JSON.stringify(notes)); } catch { /* quota */ }
+  }, [notes, loaded]);
+
   // Record a completed reminder: award XP, extend the streak if on time, and
   // surface a toast for any freshly-unlocked achievement. Used by every "done" path.
   const recordCompletion = (r: any) => {
     if (isAlertWindow) return;
     const nowTs = Date.now();
     const onTime = Math.abs(nowTs - (r?.triggerAt ?? nowTs)) <= ONTIME_WINDOW_MS;
+    // which seasonal/holiday icon this completion counts toward
+    const period = iconThemeOf(new Date(nowTs));
+    const iconExists = APP_ICONS.some(ic => ic.key === period && ic.period !== 'any');
+    const newCount = (game.iconProgress[period] || 0) + 1;
+    const alreadyUnlocked = settings.unlockedIcons.includes(period);
+
     setGame(g => {
       const { next, unlocked } = applyCompletion(g, onTime, nowTs);
+      next.iconProgress = { ...next.iconProgress, [period]: (next.iconProgress[period] || 0) + 1 };
       if (unlocked.length) {
         const first = ACHIEVEMENTS.find(a => a.id === unlocked[0]);
         if (first) setToast(`Achievement unlocked — ${first.label}`);
       }
       return next;
     });
+
+    // Complete enough reminders during a season/holiday and its app icon is
+    // yours to keep, forever. App icons only exist on mobile.
+    if (isNative && iconExists && !alreadyUnlocked && newCount >= ICON_UNLOCK_THRESHOLD) {
+      const label = APP_ICONS.find(ic => ic.key === period)?.label || period;
+      setSettings(s => s.unlockedIcons.includes(period) ? s : { ...s, unlockedIcons: [...s.unlockedIcons, period] });
+      setToast(`New app icon unlocked — ${label}! 🎉`);
+    }
   };
 
   // Record a missed reminder (deleted while overdue).
@@ -948,9 +1463,14 @@ export default function App() {
     setTasks([]);
     setSettings(DEFAULT_SETTINGS);
     setGame(DEFAULT_GAME);
+    setNotes([]);
     setLoaded(false);
     setShowSettings(false);
     setShowStats(false);
+    setShowNotepad(false);
+    setShowFriends(false);
+    setShowSidebar(false);
+    social.cloudSignOut().catch(() => {});
   };
 
   // ============ TASK / MACRO ACTIONS ============
@@ -982,8 +1502,14 @@ export default function App() {
   };
 
   // ============ FORMATTERS ============
-  const fmtTime = (ts: number) => new Date(ts).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/London' });
-  const fmtDate = (ts: number) => new Date(ts).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'Europe/London' });
+  // Resolve the timezone: 'auto' (or auto-toggle) follows this device; otherwise
+  // an explicit IANA zone the user picked in settings.
+  const activeTz = (settings.autoTimezone || !settings.timezone || settings.timezone === 'auto')
+    ? Intl.DateTimeFormat().resolvedOptions().timeZone
+    : settings.timezone;
+  const tzLabel = (settings.autoTimezone || settings.timezone === 'auto') ? 'Local time' : activeTz.split('/').pop()?.replace(/_/g, ' ') || 'Time';
+  const fmtTime = (ts: number) => new Date(ts).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: activeTz });
+  const fmtDate = (ts: number) => new Date(ts).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: activeTz });
 
   const fmtCountdown = (ts: number) => {
     const ms = ts - now;
@@ -1152,6 +1678,10 @@ export default function App() {
         100% { transform: translateY(108vh) rotate(720deg); opacity: 0.9; }
       }
 
+      /* ===== Sidebar slide-in ===== */
+      @keyframes slide-left { from { transform: translateX(100%); } to { transform: translateX(0); } }
+      .animate-slide-left { animation: slide-left 0.32s cubic-bezier(0.22, 1, 0.36, 1) both; }
+
       /* ===== Mobile layout only (desktop >600px untouched) ===== */
       @media (max-width: 600px) {
         /* honour iOS safe areas: keep content clear of the status bar, battery,
@@ -1289,6 +1819,92 @@ export default function App() {
           </div>
         )}
 
+        {/* ============ HOME BUTTON (shown while a panel is open) ============ */}
+        {anyPanelOpen && (
+          <button
+            onClick={closeAllPanels}
+            className="fixed top-5 left-5 z-[60] bg-card border border-cream-dark rounded-full h-11 px-4 flex items-center gap-2 shadow-lg text-ink hover:text-terra hover:border-terra transition-colors"
+            style={{ marginTop: 'env(safe-area-inset-top)', marginLeft: 'env(safe-area-inset-left)' }}
+            aria-label="Back to home"
+          >
+            <Home size={17} strokeWidth={2}/>
+            <span className="text-sm font-medium">Home</span>
+          </button>
+        )}
+
+        {/* ============ RIGHT SIDEBAR ============ */}
+        {showSidebar && (
+          <div className="fixed inset-0 z-[55]" role="dialog" aria-label="Menu">
+            <div className="absolute inset-0 bg-ink/30 backdrop-blur-[2px] animate-fade-in" onClick={() => setShowSidebar(false)} />
+            <aside
+              className="absolute top-0 right-0 h-full w-[86%] max-w-sm bg-cream border-l border-cream-dark shadow-2xl flex flex-col animate-slide-left"
+              style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}
+            >
+              {/* account header */}
+              <div className="p-6 border-b border-cream-dark flex items-center gap-4">
+                <Avatar settings={settings} name={user.username} size={54} />
+                <div className="min-w-0 flex-1">
+                  <div className="font-display text-xl text-ink font-medium truncate">{settings.displayName || user.username}</div>
+                  <div className="text-xs text-ink-muted mt-0.5 flex items-center gap-2">
+                    <Flame size={12} className={game.streak > 0 ? 'text-terra' : 'text-ink-muted'} strokeWidth={2}/> {game.streak}-day streak · Lv {lvl.level}
+                  </div>
+                </div>
+                <button onClick={() => setShowSidebar(false)} className="text-ink-muted hover:text-ink transition-colors p-1.5 -mr-1" aria-label="Close menu">
+                  <X size={20}/>
+                </button>
+              </div>
+
+              {/* nav */}
+              <nav className="flex-1 overflow-y-auto p-4 space-y-1.5">
+                {[
+                  { key: 'home',    label: 'Home',        icon: Home,      onClick: () => { closeAllPanels(); setShowSidebar(false); } },
+                  { key: 'stats',   label: 'Stats & achievements', icon: Trophy, onClick: () => { closeAllPanels(); setShowStats(true); setShowSidebar(false); } },
+                  { key: 'notepad', label: 'Notepad',     icon: Pencil,    onClick: () => { closeAllPanels(); setShowNotepad(true); setShowSidebar(false); } },
+                  { key: 'friends', label: 'Friends',     icon: Users,     onClick: () => { closeAllPanels(); setShowFriends(true); setShowSidebar(false); } },
+                  { key: 'settings',label: 'Settings',    icon: Settings,  onClick: () => { closeAllPanels(); setShowSettings(true); setShowSidebar(false); } },
+                ].map(item => (
+                  <button
+                    key={item.key}
+                    onClick={item.onClick}
+                    className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl text-ink hover:bg-card border border-transparent hover:border-cream-dark transition-colors text-left"
+                  >
+                    <item.icon size={19} strokeWidth={1.9} className="text-terra"/>
+                    <span className="font-medium">{item.label}</span>
+                  </button>
+                ))}
+
+                <button
+                  onClick={() => { setEditMode(e => !e); closeAllPanels(); setShowSidebar(false); }}
+                  className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl border transition-colors text-left ${editMode ? 'bg-terra-light border-terra text-terra-dark' : 'text-ink hover:bg-card border-transparent hover:border-cream-dark'}`}
+                >
+                  <Move size={19} strokeWidth={1.9} className="text-terra"/>
+                  <span className="font-medium">{editMode ? 'Done editing layout' : 'Edit layout'}</span>
+                </button>
+              </nav>
+
+              {/* footer: logout */}
+              <div className="p-4 border-t border-cream-dark">
+                <button
+                  onClick={() => { setShowSidebar(false); handleLogout(); }}
+                  className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl border border-cream-dark text-ink hover:border-terra hover:text-terra transition-colors font-medium"
+                >
+                  <LogOut size={16} strokeWidth={2}/> Log out
+                </button>
+              </div>
+            </aside>
+          </div>
+        )}
+
+        {/* ============ NOTEPAD (constellation of gradient notes) ============ */}
+        {showNotepad && (
+          <NotepadPanel notes={notes} setNotes={setNotes} theme={settings.theme} onClose={() => setShowNotepad(false)} />
+        )}
+
+        {/* ============ FRIENDS (cloud account) ============ */}
+        {showFriends && (
+          <FriendsPanel localUsername={user.username} settings={settings} onClose={() => setShowFriends(false)} />
+        )}
+
         {settings.pattern && settings.pattern !== 'none' && (
           <div className="pointer-events-none fixed inset-0" style={{ zIndex: 0, ...patternStyle(settings) }} aria-hidden="true"/>
         )}
@@ -1361,16 +1977,17 @@ export default function App() {
                 <Clock size={16} className="text-terra" strokeWidth={1.8}/>
                 <div className="text-right">
                   <div className="font-display text-lg leading-none font-medium">{ukNow}</div>
-                  <div className="text-[10px] uppercase tracking-wider text-ink-muted mt-0.5">UK time</div>
+                  <div className="text-[10px] uppercase tracking-wider text-ink-muted mt-0.5">{tzLabel}</div>
                 </div>
               </div>
               <button
-                onClick={() => setShowSettings(true)}
-                className="bg-card rounded-full w-12 h-12 border border-cream-dark flex items-center justify-center shadow-sm text-ink-muted hover:text-terra hover:border-terra transition-colors"
-                aria-label="Account settings"
-                title="Account & settings"
+                onClick={() => setShowSidebar(true)}
+                className="bg-card rounded-full h-12 pl-1.5 pr-4 border border-cream-dark flex items-center gap-2 shadow-sm text-ink-muted hover:text-terra hover:border-terra transition-colors"
+                aria-label="Open menu"
+                title="Menu"
               >
-                <Settings size={18} strokeWidth={1.8}/>
+                <Avatar settings={settings} name={user.username} size={36} />
+                <span className="hidden sm:block text-sm font-medium text-ink max-w-[8rem] truncate">{settings.displayName || user.username}</span>
               </button>
             </div>
           </header>
@@ -1782,268 +2399,227 @@ export default function App() {
         })()}
 
         {showSettings && (
-          <div className="fixed inset-0 z-40 flex items-center justify-center p-4 animate-fade-in lull-modal-overlay" style={{ background: 'rgba(31, 36, 33, 0.5)', backdropFilter: 'blur(8px)' }}>
-            <div className="bg-cream rounded-3xl max-w-lg w-full p-8 sm:p-10 max-h-[92vh] overflow-y-auto animate-slide-down border border-cream-dark lull-modal" style={{ boxShadow: '0 30px 80px -20px rgba(31, 36, 33, 0.4)' }}>
-              <div className="flex items-start justify-between mb-8">
-                <div>
-                  <p className="text-xs uppercase tracking-[0.25em] text-ink-muted mb-2">Account</p>
-                  <h2 className="font-display text-4xl font-light text-ink">Your <span className="italic text-terra">settings</span></h2>
+          <div className="fixed inset-0 z-40 flex items-center justify-center p-3 sm:p-6 animate-fade-in lull-modal-overlay" style={{ background: 'rgba(31, 36, 33, 0.35)', backdropFilter: 'blur(6px)' }}>
+            <div className="bg-cream rounded-3xl w-full max-w-3xl h-[86vh] border border-cream-dark shadow-2xl overflow-hidden animate-slide-down lull-modal flex flex-col" style={{ boxShadow: '0 30px 80px -20px rgba(31, 36, 33, 0.4)' }}>
+              {/* window title bar */}
+              <div className="flex items-center justify-between px-6 py-4 border-b border-cream-dark">
+                <div className="flex items-center gap-2">
+                  <Settings size={18} className="text-terra" strokeWidth={1.9}/>
+                  <h2 className="font-display text-xl text-ink font-medium">Settings</h2>
                 </div>
-                <button onClick={() => setShowSettings(false)} className="text-ink-muted hover:text-ink transition-colors p-2">
-                  <X size={22}/>
-                </button>
+                <button onClick={() => setShowSettings(false)} className="text-ink-muted hover:text-ink transition-colors p-1.5" aria-label="Close settings"><X size={20}/></button>
               </div>
 
-              <div className="space-y-7">
-                {/* Account identity */}
-                <div className="flex items-center gap-4 bg-card rounded-2xl p-4 border border-cream-dark">
-                  <div className="bg-terra text-cream rounded-full w-12 h-12 flex items-center justify-center shrink-0">
-                    <User size={20} strokeWidth={1.8}/>
-                  </div>
-                  <div className="min-w-0">
-                    <div className="font-display text-lg text-ink font-medium truncate">{user.username}</div>
-                    <div className="text-xs text-ink-muted">Signed in</div>
-                  </div>
-                </div>
+              <div className="flex-1 flex min-h-0">
+                <div className="flex-1 overflow-y-auto p-6 space-y-6">
 
-                {/* Display name */}
-                <div>
-                  <label className="text-xs uppercase tracking-wider text-ink-muted block mb-2">Display name</label>
-                  <input
-                    type="text"
-                    value={settings.displayName}
-                    onChange={e => setSettings(s => ({ ...s, displayName: e.target.value }))}
-                    placeholder="What should we call you?"
-                    className="w-full bg-card border border-cream-dark rounded-2xl px-5 py-3.5 text-ink focus:outline-none focus:border-terra transition-colors font-display text-lg"
-                  />
-                </div>
-
-                {/* Theme */}
-                <div>
-                  <label className="text-xs uppercase tracking-wider text-ink-muted block mb-2">Appearance</label>
-                  <div className="grid grid-cols-2 gap-3">
-                    <button
-                      onClick={() => setSettings(s => ({ ...s, theme: 'light' }))}
-                      className={`flex items-center justify-center gap-2 py-3.5 rounded-2xl border-2 font-medium transition-all ${settings.theme === 'light' ? 'border-terra text-terra bg-terra-light' : 'border-cream-dark text-ink-muted hover:border-terra'}`}
-                    >
-                      <Sun size={16} strokeWidth={2}/> Light
-                    </button>
-                    <button
-                      onClick={() => setSettings(s => ({ ...s, theme: 'dark' }))}
-                      className={`flex items-center justify-center gap-2 py-3.5 rounded-2xl border-2 font-medium transition-all ${settings.theme === 'dark' ? 'border-terra text-terra bg-terra-light' : 'border-cream-dark text-ink-muted hover:border-terra'}`}
-                    >
-                      <Moon size={16} strokeWidth={2}/> Dark
-                    </button>
-                  </div>
-                </div>
-
-                {/* Sound */}
-                <div>
-                  <label className="text-xs uppercase tracking-wider text-ink-muted block mb-2">Sound</label>
-                  <button
-                    onClick={() => setSettings(s => ({ ...s, soundEnabled: !s.soundEnabled }))}
-                    className="w-full flex items-center justify-between bg-card border border-cream-dark rounded-2xl px-5 py-4 hover:border-terra transition-colors"
-                  >
-                    <span className="flex items-center gap-3 text-ink">
-                      {settings.soundEnabled ? <Volume2 size={18} className="text-terra" strokeWidth={1.8}/> : <VolumeX size={18} className="text-ink-muted" strokeWidth={1.8}/>}
-                      {settings.soundEnabled ? 'Chime & notification sound on' : 'Sound off'}
-                    </span>
-                    <span className={`relative w-12 h-7 rounded-full transition-colors ${settings.soundEnabled ? 'bg-terra' : 'bg-cream-dark'}`}>
-                      <span className={`absolute top-1 w-5 h-5 rounded-full bg-cream transition-all ${settings.soundEnabled ? 'left-6' : 'left-1'}`}/>
-                    </span>
-                  </button>
-                </div>
-
-                {/* Background gradients */}
-                <div>
-                  <label className="text-xs uppercase tracking-wider text-ink-muted block mb-2">Background</label>
-                  <div className="grid grid-cols-5 gap-2">
-                    {BACKGROUND_KEYS.map(k => {
-                      const bg = BACKGROUNDS[k];
-                      const g = bg ? bg[settings.theme === 'dark' ? 'dark' : 'light'] : 'linear-gradient(180deg, var(--page-top), var(--page-bottom))';
-                      const active = !settings.zenMode && !settings.autoSeasonal && (settings.background || 'default') === k;
-                      return (
-                        <button
-                          key={k}
-                          type="button"
-                          onClick={() => setSettings(s => ({ ...s, background: k, autoSeasonal: false, zenMode: false }))}
-                          className={`h-12 rounded-2xl border-2 transition-all ${active ? 'border-terra' : 'border-cream-dark'}`}
-                          style={{ background: g }}
-                          aria-label={k}
-                        />
-                      );
-                    })}
-                  </div>
-                </div>
-
-                <div>
-                  <label className="text-xs uppercase tracking-wider text-ink-muted block mb-2">Pattern</label>
-                  <Segmented
-                    value={settings.pattern || 'none'}
-                    onChange={v => setSettings(s => ({ ...s, pattern: v }))}
-                    options={[{ value: 'none', label: 'None' }, { value: 'dots', label: 'Dots' }, { value: 'grid', label: 'Grid' }, { value: 'diagonal', label: 'Lines' }, { value: 'cross', label: 'Cross' }]}
-                  />
-                </div>
-
-                <div className="flex"><ToggleRow label={`Seasonal theme (${seasonOf(new Date()).label})`} value={!!settings.autoSeasonal} onChange={v => setSettings(s => ({ ...s, autoSeasonal: v, zenMode: v ? false : s.zenMode }))} /></div>
-                <div className="flex"><ToggleRow label="Zen mode (calm & minimal)" value={!!settings.zenMode} onChange={v => setSettings(s => ({ ...s, zenMode: v }))} /></div>
-                <div className="flex"><ToggleRow label="Micro-animations" value={settings.microAnimations !== false} onChange={v => setSettings(s => ({ ...s, microAnimations: v }))} /></div>
-                <div className="flex"><ToggleRow label="Ambient music (relaxing)" value={!!settings.music} onChange={v => setSettings(s => ({ ...s, music: v }))} /></div>
-
-                {/* App icon (iOS) */}
-                {isNative && (
-                  <div>
-                    <label className="text-xs uppercase tracking-wider text-ink-muted block mb-2">App icon</label>
-                    <div className="grid grid-cols-4 gap-3">
-                      {APP_ICONS.map(ic => {
-                        const available = ic.period === 'any' || ic.period === iconThemeOf(new Date()) || ic.period === seasonOf(new Date()).label.toLowerCase();
-                        return (
-                          <button
-                            key={ic.key}
-                            type="button"
-                            disabled={!available}
-                            onClick={() => { if (!available) return; setSettings(s => ({ ...s, appIcon: ic.key, autoAppIcon: false })); applyAppIcon(ic.key); }}
-                            className={`rounded-2xl border-2 p-1.5 transition-all ${settings.appIcon === ic.key ? 'border-terra' : 'border-cream-dark'} ${available ? '' : 'opacity-45'}`}
-                            title={available ? ic.label : `${ic.label} — only available in ${ic.label}`}
-                          >
-                            <div className="relative">
-                              <img src={ic.preview} alt={ic.label} className="w-full aspect-square rounded-xl bg-cream-dark object-cover"/>
-                              {!available && (
-                                <div className="absolute inset-0 flex items-center justify-center rounded-xl" style={{ background: 'rgba(31,36,33,0.35)' }}>
-                                  <Lock size={16} className="text-cream"/>
-                                </div>
-                              )}
-                            </div>
-                            <div className="text-[10px] text-center text-ink-muted mt-1 truncate">{ic.label}</div>
-                          </button>
-                        );
-                      })}
+                  {settingsCat === 'account' && (<>
+                    <div className="flex items-center gap-4 bg-card rounded-2xl p-4 border border-cream-dark">
+                      <Avatar settings={settings} name={user.username} size={48} />
+                      <div className="min-w-0">
+                        <div className="font-display text-lg text-ink font-medium truncate">{user.username}</div>
+                        <div className="text-xs text-ink-muted">Signed in</div>
+                      </div>
                     </div>
-                    <p className="text-xs text-ink-muted mt-2">Changes your home-screen icon (device build only). Seasonal and holiday icons unlock during their time of year.</p>
-                    <div className="flex mt-3"><ToggleRow label="Auto seasonal icon (by date)" value={!!settings.autoAppIcon} onChange={v => setSettings(s => ({ ...s, autoAppIcon: v }))} /></div>
-                  </div>
-                )}
 
-                {/* Notification sound + vibration (iOS only) */}
-                {isNative && (
-                  <div className="space-y-4">
                     <div>
-                      <label className="text-xs uppercase tracking-wider text-ink-muted block mb-2">Notification sound</label>
-                      <div className="mb-3">
-                        <Segmented
-                          value={settings.soundPack}
-                          onChange={v => setSettings(st => { const files = (SOUND_PACKS[v] || SOUND_PACKS.all).files; return { ...st, soundPack: v, notifSound: files.includes(st.notifSound) ? st.notifSound : files[0] }; })}
-                          options={SOUND_PACK_KEYS.map(k => ({ value: k, label: SOUND_PACKS[k].label }))}
-                        />
+                      <label className="text-xs uppercase tracking-wider text-ink-muted block mb-2">Display name</label>
+                      <input type="text" value={settings.displayName} onChange={e => setSettings(s => ({ ...s, displayName: e.target.value }))} placeholder="What should we call you?" className="w-full bg-card border border-cream-dark rounded-2xl px-5 py-3.5 text-ink focus:outline-none focus:border-terra transition-colors font-display text-lg" />
+                    </div>
+
+                    <div>
+                      <label className="text-xs uppercase tracking-wider text-ink-muted block mb-2">Profile picture</label>
+                      <div className="flex items-center gap-4 mb-3">
+                        <Avatar settings={settings} name={user.username} size={64} />
+                        <div className="flex-1">
+                          <Segmented value={settings.avatarType} onChange={v => setSettings(s => ({ ...s, avatarType: v as any }))} options={[{ value: 'monogram', label: 'Letter' }, { value: 'preset', label: 'Preset' }, { value: 'photo', label: 'Photo' }]} />
+                        </div>
                       </div>
-                      <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
-                        {visibleSounds.map(s => (
-                          <div
-                            key={s.file}
-                            className={`flex items-center gap-3 rounded-2xl border-2 px-3 py-2.5 transition-colors ${settings.notifSound === s.file ? 'border-terra bg-terra-light' : 'border-cream-dark'}`}
-                          >
+                      {settings.avatarType === 'monogram' && (
+                        <div className="flex flex-wrap gap-2">
+                          {['#C8553D','#D98E48','#6B8F71','#3D7EA6','#8C6BA9','#C85B7C','#4FA890','#2B2B2B'].map(col => (
+                            <button key={col} type="button" onClick={() => setSettings(s => ({ ...s, avatarColor: col }))} className={`w-9 h-9 rounded-full border-2 ${settings.avatarColor === col ? 'border-ink' : 'border-transparent'}`} style={{ background: col }} aria-label={col} />
+                          ))}
+                        </div>
+                      )}
+                      {settings.avatarType === 'preset' && (
+                        <div className="flex flex-wrap gap-2">
+                          {Object.keys(AVATAR_PRESETS).map(k => (
+                            <button key={k} type="button" onClick={() => setSettings(s => ({ ...s, avatarPreset: k }))} className={`w-9 h-9 rounded-full border-2 ${settings.avatarPreset === k ? 'border-ink' : 'border-transparent'}`} style={{ background: AVATAR_PRESETS[k] }} aria-label={k} />
+                          ))}
+                        </div>
+                      )}
+                      {settings.avatarType === 'photo' && (
+                        <div>
+                          <input ref={avatarInputRef} type="file" accept="image/*" onChange={onAvatarFile} className="hidden" />
+                          <button onClick={() => avatarInputRef.current?.click()} className="inline-flex items-center gap-2 bg-card border border-cream-dark rounded-2xl px-4 py-3 text-ink hover:border-terra transition-colors text-sm font-medium">
+                            <Upload size={15} strokeWidth={2}/> {settings.avatarPhoto ? 'Change photo' : 'Upload photo'}
+                          </button>
+                          {settings.avatarPhoto && (
+                            <button onClick={() => setSettings(s => ({ ...s, avatarPhoto: '', avatarType: 'monogram' }))} className="ml-2 text-sm text-ink-muted hover:text-terra transition-colors">Remove</button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex"><ToggleRow label="Show my profile picture to friends" value={!!settings.profileVisible} onChange={v => setSettings(s => ({ ...s, profileVisible: v }))} /></div>
+                    <p className="text-xs text-ink-muted -mt-1">Off by default. Applies when friends arrive in a future update.</p>
+                  </>)}
+
+                  {settingsCat === 'customization' && (<>
+                    <div>
+                      <label className="text-xs uppercase tracking-wider text-ink-muted block mb-2">Appearance</label>
+                      <div className="grid grid-cols-2 gap-3">
+                        <button onClick={() => setSettings(s => ({ ...s, theme: 'light' }))} className={`flex items-center justify-center gap-2 py-3.5 rounded-2xl border-2 font-medium transition-all ${settings.theme === 'light' ? 'border-terra text-terra bg-terra-light' : 'border-cream-dark text-ink-muted hover:border-terra'}`}><Sun size={16} strokeWidth={2}/> Light</button>
+                        <button onClick={() => setSettings(s => ({ ...s, theme: 'dark' }))} className={`flex items-center justify-center gap-2 py-3.5 rounded-2xl border-2 font-medium transition-all ${settings.theme === 'dark' ? 'border-terra text-terra bg-terra-light' : 'border-cream-dark text-ink-muted hover:border-terra'}`}><Moon size={16} strokeWidth={2}/> Dark</button>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-xs uppercase tracking-wider text-ink-muted block mb-2">Background</label>
+                      <div className="grid grid-cols-5 gap-2">
+                        {BACKGROUND_KEYS.map(k => {
+                          const bg = BACKGROUNDS[k];
+                          const g = bg ? bg[settings.theme === 'dark' ? 'dark' : 'light'] : 'linear-gradient(180deg, var(--page-top), var(--page-bottom))';
+                          const active = !settings.zenMode && !settings.autoSeasonal && (settings.background || 'default') === k;
+                          return (<button key={k} type="button" onClick={() => setSettings(s => ({ ...s, background: k, autoSeasonal: false, zenMode: false }))} className={`h-12 rounded-2xl border-2 transition-all ${active ? 'border-terra' : 'border-cream-dark'}`} style={{ background: g }} aria-label={k} />);
+                        })}
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-xs uppercase tracking-wider text-ink-muted block mb-2">Pattern</label>
+                      <Segmented value={settings.pattern || 'none'} onChange={v => setSettings(s => ({ ...s, pattern: v }))} options={[{ value: 'none', label: 'None' }, { value: 'dots', label: 'Dots' }, { value: 'grid', label: 'Grid' }, { value: 'diagonal', label: 'Lines' }, { value: 'cross', label: 'Cross' }]} />
+                    </div>
+                    <div className="flex"><ToggleRow label={`Seasonal theme (${seasonOf(new Date()).label})`} value={!!settings.autoSeasonal} onChange={v => setSettings(s => ({ ...s, autoSeasonal: v, zenMode: v ? false : s.zenMode }))} /></div>
+                    <div className="flex"><ToggleRow label="Zen mode (calm & minimal)" value={!!settings.zenMode} onChange={v => setSettings(s => ({ ...s, zenMode: v }))} /></div>
+                    <div className="flex"><ToggleRow label="Micro-animations" value={settings.microAnimations !== false} onChange={v => setSettings(s => ({ ...s, microAnimations: v }))} /></div>
+                    <div className="flex"><ToggleRow label="Ambient music (relaxing)" value={!!settings.music} onChange={v => setSettings(s => ({ ...s, music: v }))} /></div>
+                  </>)}
+
+                  {isNative && settingsCat === 'appicon' && (
+                    <div>
+                      <label className="text-xs uppercase tracking-wider text-ink-muted block mb-2">App icon</label>
+                      <div className="grid grid-cols-4 gap-3">
+                        {APP_ICONS.map(ic => {
+                          const inSeason = ic.period === 'any' || ic.period === iconThemeOf(new Date()) || ic.period === seasonOf(new Date()).label.toLowerCase();
+                          const available = inSeason || settings.unlockedIcons.includes(ic.key);
+                          return (
                             <button
-                              onClick={() => playPreview(s.file)}
-                              className="w-9 h-9 rounded-full bg-card border border-cream-dark flex items-center justify-center text-terra shrink-0 hover:border-terra transition-colors"
-                              aria-label={`Preview ${s.label}`}
+                              key={ic.key}
+                              type="button"
+                              disabled={!available}
+                              onClick={() => { if (!available) return; setSettings(s => ({ ...s, appIcon: ic.key, autoAppIcon: false })); applyAppIcon(ic.key); }}
+                              className={`rounded-2xl border-2 p-1.5 transition-all ${settings.appIcon === ic.key ? 'border-terra' : 'border-cream-dark'} ${available ? '' : 'opacity-45'}`}
+                              title={available ? ic.label : `${ic.label} — unlock by completing reminders in ${ic.label}`}
                             >
-                              <Play size={14} strokeWidth={2.4}/>
+                              <div className="relative">
+                                <img src={ic.preview} alt={ic.label} className="w-full aspect-square rounded-xl bg-cream-dark object-cover"/>
+                                {!available && (
+                                  <div className="absolute inset-0 flex items-center justify-center rounded-xl" style={{ background: 'rgba(31,36,33,0.35)' }}>
+                                    <Lock size={16} className="text-cream"/>
+                                  </div>
+                                )}
+                              </div>
+                              <div className="text-[10px] text-center text-ink-muted mt-1 truncate">{ic.label}</div>
                             </button>
-                            <button
-                              onClick={() => setSettings(st => ({ ...st, notifSound: s.file }))}
-                              className="flex-1 text-left text-ink font-medium text-sm"
-                            >
-                              {s.label}
-                            </button>
-                            {settings.notifSound === s.file && (
-                              <span className="text-[10px] uppercase tracking-wider text-terra font-medium">Selected</span>
-                            )}
+                          );
+                        })}
+                      </div>
+                      <p className="text-xs text-ink-muted mt-2">Changes your home-screen icon (device build only). Seasonal and holiday icons unlock during their season — or permanently once you complete a few reminders in them.</p>
+                      <div className="flex mt-3"><ToggleRow label="Auto seasonal icon (by date)" value={!!settings.autoAppIcon} onChange={v => setSettings(s => ({ ...s, autoAppIcon: v }))} /></div>
+                    </div>
+                  )}
+
+                  {settingsCat === 'sound' && (<>
+                    <div>
+                      <label className="text-xs uppercase tracking-wider text-ink-muted block mb-2">Sound</label>
+                      <button onClick={() => setSettings(s => ({ ...s, soundEnabled: !s.soundEnabled }))} className="w-full flex items-center justify-between bg-card border border-cream-dark rounded-2xl px-5 py-4 hover:border-terra transition-colors">
+                        <span className="flex items-center gap-3 text-ink">{settings.soundEnabled ? <Volume2 size={18} className="text-terra" strokeWidth={1.8}/> : <VolumeX size={18} className="text-ink-muted" strokeWidth={1.8}/>}{settings.soundEnabled ? 'Chime & notification sound on' : 'Sound off'}</span>
+                        <span className={`relative w-12 h-7 rounded-full transition-colors ${settings.soundEnabled ? 'bg-terra' : 'bg-cream-dark'}`}><span className={`absolute top-1 w-5 h-5 rounded-full bg-cream transition-all ${settings.soundEnabled ? 'left-6' : 'left-1'}`}/></span>
+                      </button>
+                    </div>
+                    {isNative && (
+                      <div className="space-y-4">
+                        <div>
+                          <label className="text-xs uppercase tracking-wider text-ink-muted block mb-2">Notification sound</label>
+                          <div className="mb-3">
+                            <Segmented value={settings.soundPack} onChange={v => setSettings(st => { const files = (SOUND_PACKS[v] || SOUND_PACKS.all).files; return { ...st, soundPack: v, notifSound: files.includes(st.notifSound) ? st.notifSound : files[0] }; })} options={SOUND_PACK_KEYS.map(k => ({ value: k, label: SOUND_PACKS[k].label }))} />
                           </div>
-                        ))}
+                          <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+                            {visibleSounds.map(s => (
+                              <div key={s.file} className={`flex items-center gap-3 rounded-2xl border-2 px-3 py-2.5 transition-colors ${settings.notifSound === s.file ? 'border-terra bg-terra-light' : 'border-cream-dark'}`}>
+                                <button onClick={() => playPreview(s.file)} className="w-9 h-9 rounded-full bg-card border border-cream-dark flex items-center justify-center text-terra shrink-0 hover:border-terra transition-colors" aria-label={`Preview ${s.label}`}><Play size={14} strokeWidth={2.4}/></button>
+                                <button onClick={() => setSettings(st => ({ ...st, notifSound: s.file }))} className="flex-1 text-left text-ink font-medium text-sm">{s.label}</button>
+                                {settings.notifSound === s.file && (<span className="text-[10px] uppercase tracking-wider text-terra font-medium">Selected</span>)}
+                              </div>
+                            ))}
+                          </div>
+                          <p className="text-xs text-ink-muted mt-2">Plays when a reminder fires. Tap ▶ to preview.</p>
+                        </div>
+                        <div className="flex"><ToggleRow label="Vibrate on reminders" value={settings.vibrate !== false} onChange={v => setSettings(st => ({ ...st, vibrate: v }))} /></div>
+                        <div className="flex"><ToggleRow label="Strong alert (repeat buzzes)" value={!!settings.strongAlert} onChange={v => setSettings(st => ({ ...st, strongAlert: v }))} /></div>
+                        <p className="text-xs text-ink-muted -mt-1">Vibration off shows a silent banner (iOS ties the buzz to the sound). Strong alert fires a few notifications a second apart.</p>
                       </div>
-                      <p className="text-xs text-ink-muted mt-2">Plays when a reminder fires. Tap ▶ to preview.</p>
-                    </div>
+                    )}
+                  </>)}
 
-                    <div className="flex">
-                      <ToggleRow label="Vibrate on reminders" value={settings.vibrate !== false} onChange={v => setSettings(st => ({ ...st, vibrate: v }))} />
+                  {!isNative && settingsCat === 'reminders' && (
+                    <div>
+                      <label className="text-xs uppercase tracking-wider text-ink-muted block mb-2">Panic-stop hotkey</label>
+                      <input value={settings.panicHotkey} onChange={e => setSettings(s => ({ ...s, panicHotkey: e.target.value }))} placeholder="e.g. Ctrl+Shift+X" className="w-full bg-card border border-cream-dark rounded-2xl px-5 py-3.5 text-ink focus:outline-none focus:border-terra transition-colors" />
+                      <p className="text-xs text-ink-muted mt-2">Press this anywhere to instantly stop every running task.</p>
+                      <button onClick={() => api.stopAll()} className="mt-3 w-full flex items-center justify-center gap-2 py-3 rounded-full bg-ink text-cream hover:bg-terra transition-colors font-medium text-sm"><Square size={14} strokeWidth={2.4}/> Stop all tasks now</button>
                     </div>
-                    <div className="flex">
-                      <ToggleRow label="Strong alert (repeat buzzes)" value={!!settings.strongAlert} onChange={v => setSettings(st => ({ ...st, strongAlert: v }))} />
+                  )}
+
+                  {settingsCat === 'goals' && (
+                    <div>
+                      <div className="flex items-center gap-2 mb-2"><Target size={15} className="text-terra" strokeWidth={2}/><label className="text-xs uppercase tracking-wider text-ink-muted">Your reward goal</label></div>
+                      <div className="grid grid-cols-2 gap-2 mb-2">
+                        <select value={game.reward?.goalType || 'completions'} onChange={e => setGame(g => ({ ...g, reward: { goalType: e.target.value as 'completions' | 'streak', goal: g.reward?.goal || 10, text: g.reward?.text || '', claimed: false } }))} className="bg-card border border-cream-dark rounded-2xl px-4 py-3 text-ink focus:outline-none focus:border-terra transition-colors">
+                          <option value="completions">Reminders done</option>
+                          <option value="streak">Day streak</option>
+                        </select>
+                        <input type="number" min={1} value={game.reward?.goal || 10} onChange={e => setGame(g => ({ ...g, reward: { goalType: g.reward?.goalType || 'completions', goal: Math.max(1, parseInt(e.target.value) || 1), text: g.reward?.text || '', claimed: false } }))} className="bg-card border border-cream-dark rounded-2xl px-4 py-3 text-ink focus:outline-none focus:border-terra transition-colors" placeholder="Goal" />
+                      </div>
+                      <input value={game.reward?.text || ''} onChange={e => setGame(g => ({ ...g, reward: { goalType: g.reward?.goalType || 'completions', goal: g.reward?.goal || 10, text: e.target.value, claimed: false } }))} placeholder="Reward — e.g. 'Order my favourite takeaway'" className="w-full bg-card border border-cream-dark rounded-2xl px-5 py-3.5 text-ink focus:outline-none focus:border-terra transition-colors" />
+                      <p className="text-xs text-ink-muted mt-2">{game.reward ? (game.reward.claimed ? 'Reward claimed 🎉 — set a new goal to keep going.' : `Progress: ${game.reward.goalType === 'completions' ? game.completedTotal : game.bestStreak} / ${game.reward.goal}`) : 'Set a goal and a treat for yourself — Lull celebrates when you hit it.'}</p>
                     </div>
-                    <p className="text-xs text-ink-muted -mt-1">
-                      Vibration off shows a silent banner (iOS ties the buzz to the sound). Strong alert fires a few notifications a second apart.
-                    </p>
-                  </div>
-                )}
+                  )}
 
-                {/* Panic stop (desktop only — tasks don't exist on iOS) */}
-                {!isNative && (
-                <div>
-                  <label className="text-xs uppercase tracking-wider text-ink-muted block mb-2">Panic-stop hotkey</label>
-                  <input
-                    value={settings.panicHotkey}
-                    onChange={e => setSettings(s => ({ ...s, panicHotkey: e.target.value }))}
-                    placeholder="e.g. Ctrl+Shift+X"
-                    className="w-full bg-card border border-cream-dark rounded-2xl px-5 py-3.5 text-ink focus:outline-none focus:border-terra transition-colors"
-                  />
-                  <p className="text-xs text-ink-muted mt-2">Press this anywhere to instantly stop every running task.</p>
-                  <button
-                    onClick={() => api.stopAll()}
-                    className="mt-3 w-full flex items-center justify-center gap-2 py-3 rounded-full bg-ink text-cream hover:bg-terra transition-colors font-medium text-sm"
-                  >
-                    <Square size={14} strokeWidth={2.4}/> Stop all tasks now
-                  </button>
-                </div>
-                )}
+                  {settingsCat === 'general' && (
+                    <div className="space-y-4">
+                      <div className="flex"><ToggleRow label="Set timezone automatically" value={!!settings.autoTimezone} onChange={v => setSettings(s => ({ ...s, autoTimezone: v, timezone: v ? 'auto' : (s.timezone === 'auto' ? Intl.DateTimeFormat().resolvedOptions().timeZone : s.timezone) }))} /></div>
+                      <div>
+                        <label className="text-xs uppercase tracking-wider text-ink-muted block mb-2">Timezone</label>
+                        <select disabled={settings.autoTimezone} value={settings.autoTimezone ? 'auto' : settings.timezone} onChange={e => setSettings(s => ({ ...s, timezone: e.target.value, autoTimezone: e.target.value === 'auto' }))} className="w-full bg-card border border-cream-dark rounded-2xl px-4 py-3 text-ink focus:outline-none focus:border-terra transition-colors disabled:opacity-50">
+                          {['auto','Pacific/Auckland','Australia/Sydney','Asia/Tokyo','Asia/Singapore','Asia/Kolkata','Asia/Dubai','Europe/Moscow','Europe/Berlin','Europe/Paris','Europe/London','Atlantic/Reykjavik','America/Sao_Paulo','America/New_York','America/Chicago','America/Denver','America/Los_Angeles','Pacific/Honolulu'].map(tz => (<option key={tz} value={tz}>{tz === 'auto' ? 'Automatic (this device)' : tz.replace(/_/g, ' ')}</option>))}
+                        </select>
+                        <p className="text-xs text-ink-muted mt-2">Currently {activeTz.replace(/_/g, ' ')} · {ukNow}</p>
+                      </div>
+                    </div>
+                  )}
 
-                {/* Custom reward / goal */}
-                <div>
-                  <div className="flex items-center gap-2 mb-2">
-                    <Target size={15} className="text-terra" strokeWidth={2}/>
-                    <label className="text-xs uppercase tracking-wider text-ink-muted">Your reward goal</label>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2 mb-2">
-                    <select
-                      value={game.reward?.goalType || 'completions'}
-                      onChange={e => setGame(g => ({ ...g, reward: { goalType: e.target.value as 'completions' | 'streak', goal: g.reward?.goal || 10, text: g.reward?.text || '', claimed: false } }))}
-                      className="bg-card border border-cream-dark rounded-2xl px-4 py-3 text-ink focus:outline-none focus:border-terra transition-colors"
-                    >
-                      <option value="completions">Reminders done</option>
-                      <option value="streak">Day streak</option>
-                    </select>
-                    <input
-                      type="number" min={1}
-                      value={game.reward?.goal || 10}
-                      onChange={e => setGame(g => ({ ...g, reward: { goalType: g.reward?.goalType || 'completions', goal: Math.max(1, parseInt(e.target.value) || 1), text: g.reward?.text || '', claimed: false } }))}
-                      className="bg-card border border-cream-dark rounded-2xl px-4 py-3 text-ink focus:outline-none focus:border-terra transition-colors"
-                      placeholder="Goal"
-                    />
-                  </div>
-                  <input
-                    value={game.reward?.text || ''}
-                    onChange={e => setGame(g => ({ ...g, reward: { goalType: g.reward?.goalType || 'completions', goal: g.reward?.goal || 10, text: e.target.value, claimed: false } }))}
-                    placeholder="Reward — e.g. 'Order my favourite takeaway'"
-                    className="w-full bg-card border border-cream-dark rounded-2xl px-5 py-3.5 text-ink focus:outline-none focus:border-terra transition-colors"
-                  />
-                  <p className="text-xs text-ink-muted mt-2">
-                    {game.reward
-                      ? (game.reward.claimed
-                          ? 'Reward claimed 🎉 — set a new goal to keep going.'
-                          : `Progress: ${game.reward.goalType === 'completions' ? game.completedTotal : game.bestStreak} / ${game.reward.goal}`)
-                      : 'Set a goal and a treat for yourself — Lull celebrates when you hit it.'}
-                  </p>
+                  <button onClick={handleLogout} className="w-full flex items-center justify-center gap-2 py-3.5 rounded-full border border-cream-dark text-ink hover:border-terra hover:text-terra transition-colors font-medium mt-2"><LogOut size={16} strokeWidth={2}/> Log out</button>
+                  <p className="text-center text-xs text-ink-muted">Changes save automatically.</p>
                 </div>
 
-                {/* Logout */}
-                <button
-                  onClick={handleLogout}
-                  className="w-full flex items-center justify-center gap-2 py-3.5 rounded-full border border-cream-dark text-ink hover:border-terra hover:text-terra transition-colors font-medium mt-2"
-                >
-                  <LogOut size={16} strokeWidth={2}/> Log out
-                </button>
+                {/* category rail (right) */}
+                <nav className="w-36 sm:w-44 shrink-0 border-l border-cream-dark p-3 space-y-1 overflow-y-auto">
+                  {[
+                    { key: 'account', label: 'Account', icon: User, show: true },
+                    { key: 'customization', label: 'Customization', icon: Palette, show: true },
+                    { key: 'appicon', label: 'App icon', icon: ImageIcon, show: isNative },
+                    { key: 'sound', label: 'Sound', icon: Volume2, show: true },
+                    { key: 'reminders', label: 'Automations', icon: Zap, show: !isNative },
+                    { key: 'goals', label: 'Goals', icon: Target, show: true },
+                    { key: 'general', label: 'General', icon: Clock, show: true },
+                  ].filter(ct => ct.show).map(ct => (
+                    <button key={ct.key} onClick={() => setSettingsCat(ct.key)} className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors text-left ${settingsCat === ct.key ? 'bg-terra-light text-terra-dark' : 'text-ink-muted hover:text-ink hover:bg-card'}`}>
+                      <ct.icon size={16} strokeWidth={1.9}/> <span className="truncate">{ct.label}</span>
+                    </button>
+                  ))}
+                </nav>
               </div>
-
-              <p className="text-center text-xs text-ink-muted mt-6">Changes save automatically.</p>
             </div>
           </div>
         )}
@@ -2323,41 +2899,6 @@ function TaskModal({ initial, onCancel, onSave }: { initial: Macro | null; onCan
                   </Field>
                 </div>
               )}
-            </>
-          )}
-
-          {draft.type === 'browsersearch' && (
-            <>
-              <Field label="Browser">
-                <Segmented value={c.browser} onChange={v => setConfig({ browser: v })} options={[{ value: 'chrome', label: 'Chrome' }, { value: 'msedge', label: 'Edge' }, { value: 'chromium', label: 'Chromium' }]} />
-              </Field>
-              <Field label="Search engine">
-                <Segmented value={c.searchEngine} onChange={v => setConfig({ searchEngine: v })} options={[{ value: 'google', label: 'Google' }, { value: 'bing', label: 'Bing' }, { value: 'duckduckgo', label: 'DuckDuckGo' }]} />
-              </Field>
-              <Field label="Seconds between searches">
-                <input type="number" min={0.5} step={0.5} value={c.delaySeconds} onChange={e => setConfig({ delaySeconds: numVal(e.target.value) })} className={inputCls} />
-              </Field>
-              <div className="flex">
-                <ToggleRow label="Keep browser open when stopped" value={!!c.keepOpenOnStop} onChange={v => setConfig({ keepOpenOnStop: v })} />
-              </div>
-              <div className="flex">
-                <ToggleRow label="Stay signed in (saved profile)" value={!!c.persistProfile} onChange={v => setConfig({ persistProfile: v })} />
-              </div>
-              {c.persistProfile && (
-                <>
-                  <div className="flex">
-                    <ToggleRow label="Sign in first (opens login, then waits)" value={!!c.signInFirst} onChange={v => setConfig({ signInFirst: v })} />
-                  </div>
-                  {c.signInFirst && (
-                    <Field label="Sign-in wait (seconds)">
-                      <input type="number" min={5} max={600} value={c.signInGraceSeconds} onChange={e => setConfig({ signInGraceSeconds: clampVal(e.target.value, 5, 600) })} className={inputCls} />
-                    </Field>
-                  )}
-                </>
-              )}
-              <p className="text-xs text-ink-muted leading-relaxed bg-card border border-cream-dark rounded-2xl px-4 py-3">
-                Opens its own automated browser window (separate from your normal browsing) so it keeps searching even when minimized. Chrome and Edge use your installed browser; Chromium uses Playwright's bundled one. <span className="text-ink">"Stay signed in"</span> saves the session in a private profile so you can sign into a Microsoft account once — manually; Lull never stores your password. Heads up: automated Bing searches while signed in can violate Microsoft's terms and put the account at risk.
-              </p>
             </>
           )}
 
