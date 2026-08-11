@@ -711,7 +711,7 @@ function NotepadPanel({ notes, setNotes, theme, onClose }: {
   };
 
   const onPointerMove = (e: React.PointerEvent) => {
-    if (dragRef.current) { const f = worldFrac(e.clientX, e.clientY); setNotes(ns => ns.map(n => (n.id === dragRef.current!.id ? { ...n, x: f.x, y: f.y } : n))); return; }
+    if (dragRef.current) { const id = dragRef.current.id; const f = worldFrac(e.clientX, e.clientY); setNotes(ns => ns.map(n => (n.id === id ? { ...n, x: f.x, y: f.y } : n))); return; }
     if (pointers.current.has(e.pointerId)) pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
     const g = gesture.current;
     if (!g) return;
@@ -910,8 +910,9 @@ function SharedNotepad({ space, theme, onClose }: {
   };
   const onPointerMove = (e: React.PointerEvent) => {
     if (!dragRef.current) return;
+    const id = dragRef.current.id;
     const { x, y } = frac(e.clientX, e.clientY);
-    setNotes(ns => ns.map(n => (n.id === dragRef.current!.id ? { ...n, x, y } : n)));
+    setNotes(ns => ns.map(n => (n.id === id ? { ...n, x, y } : n)));
   };
   const endDrag = () => {
     const d = dragRef.current; dragRef.current = null;
