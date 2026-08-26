@@ -47,6 +47,13 @@ export interface UserSettings {
   autoTimezone: boolean
   unlockedIcons: string[]
   dashboardOrder: string[]
+  codeFont: string
+  codeFontSize: number
+  codeTheme: string
+  codeTabSize: number
+  codeWrap: boolean
+  codeLivePreview: boolean
+  codeLineNumbers: boolean
 }
 
 interface StoreFile {
@@ -81,6 +88,13 @@ const DEFAULT_SETTINGS: UserSettings = {
   autoTimezone: true,
   unlockedIcons: [],
   dashboardOrder: [],
+  codeFont: 'mono',
+  codeFontSize: 13,
+  codeTheme: 'match',
+  codeTabSize: 2,
+  codeWrap: false,
+  codeLivePreview: true,
+  codeLineNumbers: false,
 }
 
 function storePath(): string {

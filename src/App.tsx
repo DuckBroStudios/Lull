@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Plus, X, Image as ImageIcon, Trash2, AlarmClock, Bell, Clock, Settings, LogOut, User, Moon, Sun, Volume2, VolumeX, Eye, EyeOff, Zap, Play, Square, MousePointerClick, Keyboard, Type, Move, Pencil, ChevronLeft, AlertTriangle, Music, Pause, Lock, Flame, Trophy, Target, TrendingUp, Gift, BarChart3, Sparkles, Home, Palette, Upload, ZoomIn, ZoomOut, Users, Search, UserPlus, Check } from 'lucide-react';
+import { Plus, X, Image as ImageIcon, Trash2, AlarmClock, Bell, Clock, Settings, LogOut, User, Moon, Sun, Volume2, VolumeX, Eye, EyeOff, Zap, Play, Square, MousePointerClick, Keyboard, Type, Move, Pencil, ChevronLeft, AlertTriangle, Music, Pause, Lock, Flame, Trophy, Target, TrendingUp, Gift, BarChart3, Sparkles, Home, Palette, Upload, ZoomIn, ZoomOut, Users, Search, UserPlus, Check, Code2, FilePlus, FolderPlus, BookOpen, Shield, Ban } from 'lucide-react';
 import { isNative, requestReminderPermission, syncReminderNotifications } from './notifications';
 import * as social from './social';
 import type { CloudProfile, Friend, FriendRequest } from './social';
@@ -46,6 +46,14 @@ interface UserSettings {
   // unlocks + layout
   unlockedIcons: string[];   // seasonal/holiday app icons earned by completing reminders
   dashboardOrder: string[];  // edit-mode ordering of home dashboard blocks
+  // coding sandbox
+  codeFont: string;
+  codeFontSize: number;
+  codeTheme: string;         // 'match' | 'light' | 'dark' | 'contrast'
+  codeTabSize: number;
+  codeWrap: boolean;
+  codeLivePreview: boolean;
+  codeLineNumbers: boolean;
 }
 interface SessionUser {
   username: string;
@@ -80,6 +88,13 @@ const DEFAULT_SETTINGS: UserSettings = {
   autoTimezone: true,
   unlockedIcons: [],
   dashboardOrder: [],
+  codeFont: 'mono',
+  codeFontSize: 13,
+  codeTheme: 'match',
+  codeTabSize: 2,
+  codeWrap: false,
+  codeLivePreview: true,
+  codeLineNumbers: false,
 };
 
 // ============ DELIGHT: backgrounds, seasons, sound packs, greeting, icons ============
@@ -1033,6 +1048,421 @@ function SharedNotepad({ space, theme, onClose }: {
 }
 
 // ============================================================
+// CODING SANDBOX — local multi-file projects with a live web preview.
+// ============================================================
+interface CodeFile { name: string; content: string }
+interface CodeProject { id: string; name: string; files: CodeFile[]; active: string }
+interface CodeData { projects: CodeProject[]; activeId: string }
+
+function makeCodeProject(name: string, greet: string = 'there'): CodeProject {
+  const id = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+  return {
+    id, name, active: 'index.html',
+    files: [
+      { name: 'index.html', content: `<!doctype html>\n<html>\n  <head>\n    <meta charset="utf-8">\n    <title>My page</title>\n  </head>\n  <body>\n    <h1>Hello, ${greet}</h1>\n    <p class="note">Edit the files — the preview updates live.</p>\n    <button onclick="greet()">Click me</button>\n  </body>\n</html>` },
+      { name: 'style.css', content: `body {\n  font-family: system-ui, sans-serif;\n  text-align: center;\n  padding: 40px;\n  background: #F5EFE6;\n  color: #1F2421;\n}\nh1 { color: #C8553D; }\n.note { color: #6B6862; }\nbutton {\n  margin-top: 16px;\n  padding: 10px 18px;\n  border: none;\n  border-radius: 999px;\n  background: #C8553D;\n  color: #fff;\n  font-size: 15px;\n  cursor: pointer;\n}` },
+      { name: 'script.js', content: `function greet() {\n  alert('Hello from Lull!');\n}` },
+    ],
+  };
+}
+
+const DEFAULT_CODE_DATA = (greet: string = 'there'): CodeData => { const p = makeCodeProject('My first project', greet); return { projects: [p], activeId: p.id }; };
+
+// Combine the project's files into one HTML document for the preview iframe.
+function buildPreviewDoc(files: CodeFile[]): string {
+  const html = files.find(f => f.name.endsWith('.html'))?.content ?? '';
+  const css = files.filter(f => f.name.endsWith('.css')).map(f => f.content).join('\n\n');
+  const js = files.filter(f => f.name.endsWith('.js')).map(f => f.content).join('\n\n');
+  let doc = html.includes('</head>') ? html.replace('</head>', `<style>\n${css}\n</style>\n</head>`) : `<style>\n${css}\n</style>\n${html}`;
+  doc = doc.includes('</body>') ? doc.replace('</body>', `<script>\n${js}\n</script>\n</body>`) : `${doc}\n<script>\n${js}\n</script>`;
+  return doc;
+}
+
+const CODE_FONTS: Record<string, { label: string; stack: string }> = {
+  mono: { label: 'Monospace', stack: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace' },
+  menlo: { label: 'Menlo', stack: 'Menlo, Consolas, "Liberation Mono", monospace' },
+  courier: { label: 'Courier', stack: '"Courier New", Courier, monospace' },
+  system: { label: 'System', stack: 'system-ui, -apple-system, sans-serif' },
+};
+
+function editorColors(codeTheme: string, appTheme: string): { bg: string; fg: string } {
+  const t = codeTheme === 'match' ? appTheme : codeTheme;
+  if (t === 'contrast') return { bg: '#000000', fg: '#F4F4F4' };
+  if (t === 'dark') return { bg: '#17150F', fg: '#F1EBDF' };
+  return { bg: '#FBF7F0', fg: '#1F2421' };
+}
+
+export interface CodeCfg { font: string; size: number; theme: string; tab: number; wrap: boolean; live: boolean; lineNumbers: boolean }
+
+function CodePanel({ data, setData, theme, greet, cfg, onLogbook, onClose }: {
+  data: CodeData;
+  setData: React.Dispatch<React.SetStateAction<CodeData>>;
+  theme: string;
+  greet: string;
+  cfg: CodeCfg;
+  onLogbook: () => void;
+  onClose: () => void;
+}) {
+  const proj = data.projects.find(p => p.id === data.activeId) || data.projects[0];
+  const activeFile = proj.files.find(f => f.name === proj.active) || proj.files[0];
+  const [pane, setPane] = useState<'code' | 'preview'>('code');
+  const [adding, setAdding] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [renaming, setRenaming] = useState(false);
+  const [projName, setProjName] = useState(proj.name);
+  const [previewDoc, setPreviewDoc] = useState('');
+  const gutterRef = useRef<HTMLDivElement>(null);
+
+  // build once on open / when switching project
+  useEffect(() => { setPreviewDoc(buildPreviewDoc(proj.files)); }, [proj.id]);
+  // live auto-refresh while typing (only when enabled)
+  useEffect(() => {
+    if (!cfg.live) return;
+    const t = setTimeout(() => setPreviewDoc(buildPreviewDoc(proj.files)), 250);
+    return () => clearTimeout(t);
+  }, [proj.files, cfg.live]);
+  const runPreview = () => setPreviewDoc(buildPreviewDoc(proj.files));
+
+  const updateProject = (fn: (p: CodeProject) => CodeProject) => setData(d => ({ ...d, projects: d.projects.map(p => (p.id === d.activeId ? fn(p) : p)) }));
+  const setFileContent = (content: string) => updateProject(p => ({ ...p, files: p.files.map(f => (f.name === p.active ? { ...f, content } : f)) }));
+  const switchFile = (name: string) => updateProject(p => ({ ...p, active: name }));
+  const addFile = () => {
+    let name = newName.trim(); setNewName(''); setAdding(false);
+    if (!name) return;
+    if (!/\.[a-z0-9]+$/i.test(name)) name += '.js';
+    updateProject(p => (p.files.some(f => f.name === name) ? { ...p, active: name } : { ...p, files: [...p.files, { name, content: '' }], active: name }));
+  };
+  const deleteFile = (name: string) => updateProject(p => {
+    if (p.files.length <= 1) return p;
+    const files = p.files.filter(f => f.name !== name);
+    return { ...p, files, active: p.active === name ? files[0].name : p.active };
+  });
+
+  const newProject = () => { const np = makeCodeProject(`Project ${data.projects.length + 1}`, greet); setData(d => ({ projects: [...d.projects, np], activeId: np.id })); };
+  const renameProject = () => { const n = projName.trim(); if (n) updateProject(p => ({ ...p, name: n })); setRenaming(false); };
+  const deleteProject = () => setData(d => {
+    if (d.projects.length <= 1) { const np = makeCodeProject('My first project', greet); return { projects: [np], activeId: np.id }; }
+    const projects = d.projects.filter(p => p.id !== d.activeId);
+    return { projects, activeId: projects[0].id };
+  });
+
+  const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Tab') {
+      e.preventDefault();
+      const ta = e.currentTarget; const s = ta.selectionStart, en = ta.selectionEnd;
+      setFileContent(ta.value.slice(0, s) + '  ' + ta.value.slice(en));
+      requestAnimationFrame(() => { ta.selectionStart = ta.selectionEnd = s + 2; });
+    }
+  };
+
+  const ed = editorColors(cfg.theme, theme);
+  const font = CODE_FONTS[cfg.font] || CODE_FONTS.mono;
+  const lineCount = activeFile.content.split('\n').length;
+
+  return (
+    <div className="fixed inset-0 z-40 bg-cream animate-fade-in flex flex-col" style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
+      <div className="flex items-center gap-2 px-4 sm:px-6 py-3 border-b border-cream-dark shrink-0">
+        <Code2 size={18} className="text-terra shrink-0" strokeWidth={1.9} />
+        {renaming ? (
+          <input value={projName} onChange={e => setProjName(e.target.value)} onBlur={renameProject} onKeyDown={e => { if (e.key === 'Enter') renameProject(); }} autoFocus className="bg-card border border-cream-dark rounded-lg px-2 py-1 text-ink text-sm" />
+        ) : (
+          <button onClick={() => { setProjName(proj.name); setRenaming(true); }} className="font-display text-lg text-ink font-medium truncate max-w-[36vw]" title="Rename project">{proj.name}</button>
+        )}
+        <select value={data.activeId} onChange={e => setData(d => ({ ...d, activeId: e.target.value }))} className="bg-card border border-cream-dark rounded-lg px-2 py-1 text-ink text-xs max-w-[28vw]" title="Switch project">
+          {data.projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+        </select>
+        <button onClick={newProject} className="flex items-center gap-1 text-xs text-terra border border-terra-light hover:border-terra rounded-lg px-2 py-1 transition-colors" title="New project"><FolderPlus size={13} /> New</button>
+        <button onClick={deleteProject} className="text-ink-muted hover:text-terra p-1" title="Delete project"><Trash2 size={14} /></button>
+        <button onClick={onLogbook} className="flex items-center gap-1 text-xs text-ink-muted hover:text-terra border border-cream-dark hover:border-terra rounded-lg px-2 py-1 transition-colors" title="Logbook / reference"><BookOpen size={13} /> <span className="hidden sm:inline">Logbook</span></button>
+        {!cfg.live && <button onClick={runPreview} className="flex items-center gap-1 text-xs text-cream bg-terra hover:bg-terra-dark rounded-lg px-2.5 py-1 transition-colors" title="Run preview"><Play size={12} strokeWidth={2.5} /> Run</button>}
+        <div className="flex-1" />
+        <div className="flex sm:hidden bg-card border border-cream-dark rounded-lg overflow-hidden text-xs">
+          <button onClick={() => setPane('code')} className={`px-3 py-1 ${pane === 'code' ? 'bg-terra text-cream' : 'text-ink-muted'}`}>Code</button>
+          <button onClick={() => setPane('preview')} className={`px-3 py-1 ${pane === 'preview' ? 'bg-terra text-cream' : 'text-ink-muted'}`}>Preview</button>
+        </div>
+        <button onClick={onClose} className="text-ink-muted hover:text-ink p-1.5 ml-1" aria-label="Close code"><X size={20} /></button>
+      </div>
+
+      <div className="flex-1 flex min-h-0">
+        <div className={`${pane === 'code' ? 'flex' : 'hidden'} sm:flex flex-col flex-1 min-w-0 sm:border-r border-cream-dark`}>
+          <div className="flex items-center gap-1 px-2 py-1.5 border-b border-cream-dark overflow-x-auto shrink-0">
+            {proj.files.map(f => (
+              <div key={f.name} className={`group flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs whitespace-nowrap cursor-pointer ${proj.active === f.name ? 'bg-terra-light text-terra-dark' : 'text-ink-muted hover:text-ink hover:bg-card'}`} onClick={() => switchFile(f.name)}>
+                <span>{f.name}</span>
+                {proj.files.length > 1 && <button onClick={e => { e.stopPropagation(); deleteFile(f.name); }} className="opacity-60 hover:opacity-100 hover:text-terra"><X size={11} /></button>}
+              </div>
+            ))}
+            {adding ? (
+              <input value={newName} onChange={e => setNewName(e.target.value)} onBlur={addFile} onKeyDown={e => { if (e.key === 'Enter') addFile(); if (e.key === 'Escape') { setAdding(false); setNewName(''); } }} autoFocus placeholder="name.js" className="bg-card border border-cream-dark rounded-lg px-2 py-1 text-xs w-24" />
+            ) : (
+              <button onClick={() => setAdding(true)} className="text-ink-muted hover:text-terra p-1 shrink-0" title="New file"><FilePlus size={14} /></button>
+            )}
+          </div>
+          <div className="flex-1 flex min-h-0 overflow-hidden" style={{ background: ed.bg }}>
+            {cfg.lineNumbers && (
+              <div ref={gutterRef} className="select-none text-right pl-3 pr-2 py-4 overflow-hidden shrink-0" style={{ color: ed.fg, opacity: 0.4, fontFamily: font.stack, fontSize: cfg.size, lineHeight: 1.6, whiteSpace: 'pre' }}>
+                {Array.from({ length: lineCount }, (_, i) => <div key={i}>{i + 1}</div>)}
+              </div>
+            )}
+            <textarea
+              value={activeFile.content}
+              onChange={e => setFileContent(e.target.value)}
+              onKeyDown={onKeyDown}
+              onScroll={e => { if (gutterRef.current) gutterRef.current.scrollTop = e.currentTarget.scrollTop; }}
+              spellCheck={false}
+              wrap={cfg.wrap ? 'soft' : 'off'}
+              className="flex-1 w-full resize-none py-4 pr-4 pl-2 focus:outline-none"
+              style={{ background: ed.bg, color: ed.fg, fontFamily: font.stack, fontSize: cfg.size, lineHeight: 1.6, tabSize: cfg.tab, whiteSpace: cfg.wrap ? 'pre-wrap' : 'pre', overflowX: cfg.wrap ? 'hidden' : 'auto' }}
+            />
+          </div>
+        </div>
+        <div className={`${pane === 'preview' ? 'flex' : 'hidden'} sm:flex flex-col flex-1 min-w-0 bg-white`}>
+          <div className="px-3 py-1.5 border-b border-cream-dark bg-cream text-[11px] uppercase tracking-wider text-ink-muted shrink-0">Preview</div>
+          <iframe title="preview" srcDoc={previewDoc} sandbox="allow-scripts allow-modals" className="flex-1 w-full border-0 bg-white" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// LOGBOOK — a clickable reference index for HTML / CSS / JS.
+// ============================================================
+interface RefEntry { name: string; syntax: string; desc: string; info: string }
+
+const CODE_REF: { key: 'html' | 'css' | 'js'; label: string; entries: RefEntry[] }[] = [
+  { key: 'html', label: 'HTML', entries: [
+    { name: '<!doctype html>', syntax: '<!doctype html>', desc: 'Tells the browser this is a modern HTML5 document.', info: 'Always the very first line of an HTML file.' },
+    { name: '<html>', syntax: '<html> … </html>', desc: 'The root element that wraps the whole page.', info: 'Everything else goes inside it. Add lang="en" for the page language.' },
+    { name: '<head>', syntax: '<head> … </head>', desc: 'Holds info about the page that isn\'t shown directly.', info: 'Title, meta tags, links to CSS, etc. live here.' },
+    { name: '<body>', syntax: '<body> … </body>', desc: 'Everything visible on the page.', info: 'Text, images, buttons and layout all go inside body.' },
+    { name: '<h1>–<h6>', syntax: '<h1>Title</h1>', desc: 'Headings, from most important (h1) to least (h6).', info: 'Use one h1 per page; nest the rest for structure.' },
+    { name: '<p>', syntax: '<p>Some text.</p>', desc: 'A paragraph of text.', info: 'Browsers add space above and below each paragraph.' },
+    { name: '<a>', syntax: '<a href="https://…">link</a>', desc: 'A hyperlink to another page or place.', info: 'href is the destination. target="_blank" opens a new tab.' },
+    { name: '<img>', syntax: '<img src="pic.png" alt="…">', desc: 'Shows an image.', info: 'alt describes it for screen readers and if it fails to load. No closing tag.' },
+    { name: '<div>', syntax: '<div> … </div>', desc: 'A generic box used to group and lay out content.', info: 'Style it with CSS. The most common building block.' },
+    { name: '<span>', syntax: '<span>text</span>', desc: 'A small inline container for a bit of text.', info: 'Use it to style part of a line without breaking it.' },
+    { name: '<ul> / <ol> / <li>', syntax: '<ul><li>Item</li></ul>', desc: 'Bulleted (ul) or numbered (ol) lists of items (li).', info: 'Every list item goes in its own <li>.' },
+    { name: '<button>', syntax: '<button onclick="fn()">Go</button>', desc: 'A clickable button.', info: 'Use onclick or JS addEventListener to make it do something.' },
+    { name: '<input>', syntax: '<input type="text" placeholder="…">', desc: 'A field the user can type in or interact with.', info: 'type can be text, number, checkbox, email, password, and more.' },
+    { name: '<form>', syntax: '<form> … </form>', desc: 'Groups inputs together to be submitted.', info: 'Wraps inputs and a submit button.' },
+    { name: '<label>', syntax: '<label for="id">Name</label>', desc: 'A caption for an input.', info: 'Matching for and input id lets you tap the label to focus the field.' },
+    { name: '<link>', syntax: '<link rel="stylesheet" href="style.css">', desc: 'Links an external file, usually a stylesheet.', info: 'Goes in the <head>. No closing tag.' },
+    { name: '<script>', syntax: '<script src="script.js"></script>', desc: 'Adds JavaScript to the page.', info: 'Either link a file with src or write code between the tags.' },
+    { name: '<style>', syntax: '<style> body { … } </style>', desc: 'Writes CSS directly inside the HTML.', info: 'Usually placed in the <head>.' },
+    { name: '<br>', syntax: 'line one<br>line two', desc: 'A line break.', info: 'Use sparingly — prefer separate paragraphs or CSS spacing.' },
+    { name: '<strong> / <em>', syntax: '<strong>bold</strong> <em>italic</em>', desc: 'Bold (strong) and italic (em) emphasis.', info: 'They also carry meaning for screen readers.' },
+    { name: '<nav> / <header> / <footer>', syntax: '<header> … </header>', desc: 'Landmark sections: navigation, top, and bottom of a page.', info: 'Semantic tags that help structure and accessibility.' },
+  ] },
+  { key: 'css', label: 'CSS', entries: [
+    { name: 'color', syntax: 'color: #C8553D;', desc: 'Sets the text color.', info: 'Accepts hex (#fff), names (red), rgb() and hsl().' },
+    { name: 'background', syntax: 'background: #F5EFE6;', desc: 'Sets the background color or image.', info: 'Shorthand — can also take gradients: linear-gradient(...).' },
+    { name: 'font-size', syntax: 'font-size: 16px;', desc: 'How big the text is.', info: 'Common units: px, rem, em, %.' },
+    { name: 'font-family', syntax: 'font-family: system-ui, sans-serif;', desc: 'Which typeface to use.', info: 'List fallbacks separated by commas.' },
+    { name: 'margin', syntax: 'margin: 16px;', desc: 'Space OUTSIDE an element.', info: 'margin: 10px 20px; = top/bottom then left/right. margin: 0 auto; centers.' },
+    { name: 'padding', syntax: 'padding: 12px;', desc: 'Space INSIDE an element, around its content.', info: 'Same shorthand rules as margin.' },
+    { name: 'border', syntax: 'border: 2px solid #E5D9C5;', desc: 'A line around an element.', info: 'Order: width style color.' },
+    { name: 'border-radius', syntax: 'border-radius: 12px;', desc: 'Rounds the corners.', info: 'Use 999px or 50% for pills/circles.' },
+    { name: 'width / height', syntax: 'width: 100%; height: 200px;', desc: 'The size of an element.', info: 'Try max-width to stay responsive.' },
+    { name: 'display', syntax: 'display: flex;', desc: 'How an element lays out its children.', info: 'Common values: block, inline, flex, grid, none (hides it).' },
+    { name: 'flex (layout)', syntax: 'display: flex; gap: 8px;', desc: 'A flexible row/column layout.', info: 'Pair with justify-content and align-items to position children.' },
+    { name: 'justify-content', syntax: 'justify-content: center;', desc: 'Aligns flex children along the main axis.', info: 'center, space-between, flex-start, flex-end.' },
+    { name: 'align-items', syntax: 'align-items: center;', desc: 'Aligns flex children on the cross axis.', info: 'center vertically-aligns items in a row.' },
+    { name: 'gap', syntax: 'gap: 12px;', desc: 'Space between flex/grid children.', info: 'Cleaner than adding margins to each child.' },
+    { name: 'position', syntax: 'position: absolute;', desc: 'How an element is placed.', info: 'relative, absolute, fixed, sticky. Use with top/left/right/bottom.' },
+    { name: 'text-align', syntax: 'text-align: center;', desc: 'Aligns text horizontally.', info: 'left, right, center, justify.' },
+    { name: 'box-shadow', syntax: 'box-shadow: 0 4px 12px rgba(0,0,0,.1);', desc: 'A soft shadow behind an element.', info: 'Order: x y blur spread color.' },
+    { name: 'opacity', syntax: 'opacity: 0.5;', desc: 'How see-through an element is.', info: '0 = invisible, 1 = solid.' },
+    { name: 'transition', syntax: 'transition: all 0.3s ease;', desc: 'Animates changes smoothly.', info: 'Great with :hover states.' },
+    { name: 'transform', syntax: 'transform: scale(1.1);', desc: 'Moves, rotates, or scales an element.', info: 'translate(), rotate(), scale(). Doesn\'t affect layout.' },
+    { name: 'cursor', syntax: 'cursor: pointer;', desc: 'The mouse cursor shown when hovering.', info: 'pointer signals something is clickable.' },
+    { name: 'grid', syntax: 'display: grid; grid-template-columns: 1fr 1fr;', desc: 'A two-dimensional row/column layout.', info: 'fr units split available space; gap adds spacing.' },
+  ] },
+  { key: 'js', label: 'JavaScript', entries: [
+    { name: 'let / const', syntax: 'let x = 1; const y = 2;', desc: 'Declare a variable. const can\'t be reassigned.', info: 'Prefer const; use let only when the value changes.' },
+    { name: 'function', syntax: 'function greet(name) { … }', desc: 'A reusable block of code you can call.', info: 'Call it with greet("Sam"). Use return to give back a value.' },
+    { name: 'arrow function', syntax: 'const add = (a, b) => a + b;', desc: 'A shorter way to write a function.', info: 'Great for callbacks like array.map(x => …).' },
+    { name: 'if / else', syntax: 'if (x > 0) { … } else { … }', desc: 'Runs code only when a condition is true.', info: 'Combine conditions with && (and) and || (or).' },
+    { name: 'for loop', syntax: 'for (let i = 0; i < 5; i++) { … }', desc: 'Repeats code a set number of times.', info: 'i starts at 0, runs while i < 5, adds 1 each pass.' },
+    { name: 'console.log', syntax: 'console.log("hi", value);', desc: 'Prints to the developer console.', info: 'Your main tool for checking what your code is doing.' },
+    { name: 'alert', syntax: 'alert("Hello!");', desc: 'Shows a popup message.', info: 'Handy for quick tests; annoying in real apps.' },
+    { name: 'document.querySelector', syntax: 'document.querySelector(".note")', desc: 'Finds the first element matching a CSS selector.', info: 'Returns the element so you can read or change it.' },
+    { name: 'getElementById', syntax: 'document.getElementById("box")', desc: 'Finds one element by its id.', info: 'Fast and simple when you know the id.' },
+    { name: 'addEventListener', syntax: 'btn.addEventListener("click", fn)', desc: 'Runs a function when an event happens.', info: 'Events: click, input, keydown, submit, and many more.' },
+    { name: 'textContent', syntax: 'el.textContent = "Hi";', desc: 'Reads or sets the text inside an element.', info: 'Use innerHTML if you need to insert HTML tags.' },
+    { name: 'classList', syntax: 'el.classList.add("active")', desc: 'Add, remove, or toggle CSS classes.', info: '.toggle("open") flips it on/off — great for menus.' },
+    { name: 'setTimeout', syntax: 'setTimeout(fn, 1000)', desc: 'Runs a function once after a delay (ms).', info: '1000 ms = 1 second.' },
+    { name: 'setInterval', syntax: 'setInterval(fn, 1000)', desc: 'Runs a function over and over on a timer.', info: 'Stop it with clearInterval(id).' },
+    { name: 'array.map', syntax: '[1,2,3].map(n => n * 2)', desc: 'Makes a new array by transforming each item.', info: 'Returns [2,4,6]; doesn\'t change the original.' },
+    { name: 'array.filter', syntax: 'nums.filter(n => n > 0)', desc: 'Keeps only the items that pass a test.', info: 'Returns a new, shorter array.' },
+    { name: 'array.forEach', syntax: 'items.forEach(x => …)', desc: 'Runs code once for each item.', info: 'Use it for side-effects; use map to build a new array.' },
+    { name: 'push', syntax: 'arr.push(item)', desc: 'Adds an item to the end of an array.', info: 'Changes the array in place.' },
+    { name: 'template literals', syntax: '`Hello ${name}`', desc: 'Strings with values plugged in.', info: 'Use backticks; put variables inside ${ }.' },
+    { name: '=== (equality)', syntax: 'if (a === b)', desc: 'Checks if two values are exactly equal.', info: 'Prefer === over == (which does loose type conversion).' },
+    { name: 'fetch', syntax: 'fetch(url).then(r => r.json())', desc: 'Requests data from the internet.', info: 'Returns a Promise; often used with async/await.' },
+    { name: 'Math.random', syntax: 'Math.random()', desc: 'A random number from 0 up to (not including) 1.', info: 'Math.floor(Math.random()*6) gives 0–5.' },
+  ] },
+];
+
+function LogbookPanel({ theme, onClose }: { theme: string; onClose: () => void }) {
+  const [langKey, setLangKey] = useState<'html' | 'css' | 'js'>('html');
+  const [q, setQ] = useState('');
+  const [sel, setSel] = useState<RefEntry | null>(null);
+  const lang = CODE_REF.find(l => l.key === langKey) || CODE_REF[0];
+  const entries = lang.entries.filter(e => e.name.toLowerCase().includes(q.trim().toLowerCase()) || e.desc.toLowerCase().includes(q.trim().toLowerCase()));
+  const codeBg = theme === 'dark' ? '#17150F' : '#F3EBDD';
+
+  return (
+    <div className="fixed inset-0 z-40 bg-cream animate-fade-in flex flex-col" style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
+      <div className="flex items-center gap-2 px-4 sm:px-6 py-3 border-b border-cream-dark shrink-0">
+        <BookOpen size={18} className="text-terra shrink-0" strokeWidth={1.9} />
+        <h2 className="font-display text-lg text-ink font-medium">Logbook</h2>
+        <div className="flex bg-card border border-cream-dark rounded-lg overflow-hidden text-xs ml-2">
+          {CODE_REF.map(l => (
+            <button key={l.key} onClick={() => { setLangKey(l.key); setSel(null); }} className={`px-3 py-1.5 ${langKey === l.key ? 'bg-terra text-cream' : 'text-ink-muted hover:text-ink'}`}>{l.label}</button>
+          ))}
+        </div>
+        <div className="flex-1" />
+        <button onClick={onClose} className="text-ink-muted hover:text-ink p-1.5" aria-label="Close logbook"><X size={20} /></button>
+      </div>
+
+      <div className="flex-1 flex min-h-0">
+        {/* index list */}
+        <div className={`${sel ? 'hidden' : 'flex'} sm:flex flex-col w-full sm:w-72 shrink-0 sm:border-r border-cream-dark min-h-0`}>
+          <div className="p-3 border-b border-cream-dark shrink-0">
+            <input value={q} onChange={e => setQ(e.target.value)} placeholder={`Search ${lang.label}…`} className="w-full bg-card border border-cream-dark rounded-xl px-3 py-2 text-sm text-ink focus:outline-none focus:border-terra" />
+          </div>
+          <div className="flex-1 overflow-y-auto p-2 space-y-1">
+            {entries.map(e => (
+              <button key={e.name} onClick={() => setSel(e)} className={`w-full text-left rounded-xl px-3 py-2 transition-colors ${sel?.name === e.name ? 'bg-terra-light' : 'hover:bg-card'}`}>
+                <div className="font-medium text-ink text-sm" style={{ fontFamily: 'ui-monospace, monospace' }}>{e.name}</div>
+                <div className="text-xs text-ink-muted truncate">{e.desc}</div>
+              </button>
+            ))}
+            {entries.length === 0 && <p className="text-sm text-ink-muted p-3">Nothing matches "{q}".</p>}
+          </div>
+        </div>
+
+        {/* detail */}
+        <div className={`${sel ? 'flex' : 'hidden'} sm:flex flex-col flex-1 min-w-0 overflow-y-auto`}>
+          {sel ? (
+            <div className="p-5 sm:p-8 max-w-2xl">
+              <button onClick={() => setSel(null)} className="sm:hidden flex items-center gap-1 text-sm text-terra mb-4"><ChevronLeft size={16} /> Back</button>
+              <h3 className="text-2xl text-ink font-semibold mb-1" style={{ fontFamily: 'ui-monospace, monospace' }}>{sel.name}</h3>
+              <span className="inline-block text-[10px] uppercase tracking-wider bg-terra-light text-terra-dark rounded-full px-2.5 py-1 mb-5">{lang.label}</span>
+              <div className="text-[11px] uppercase tracking-wider text-ink-muted mb-1">Format</div>
+              <pre className="rounded-xl p-3 mb-5 text-sm overflow-x-auto text-ink" style={{ background: codeBg, fontFamily: 'ui-monospace, monospace' }}>{sel.syntax}</pre>
+              <div className="text-[11px] uppercase tracking-wider text-ink-muted mb-1">What it does</div>
+              <p className="text-ink mb-5 leading-relaxed">{sel.desc}</p>
+              <div className="text-[11px] uppercase tracking-wider text-ink-muted mb-1">Extra info</div>
+              <p className="text-ink-muted leading-relaxed">{sel.info}</p>
+            </div>
+          ) : (
+            <div className="flex-1 flex items-center justify-center text-center p-8">
+              <div><BookOpen size={28} className="text-terra mx-auto mb-3" strokeWidth={1.5} /><p className="font-display text-2xl italic text-ink-muted">Pick something to learn</p><p className="text-sm text-ink-muted mt-2">Tap any entry in the index — everything's unlocked.</p></div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Shown when a Pro-only area is opened without Pro.
+function ProLocked({ what, onClose }: { what: string; onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 z-40 bg-cream flex flex-col items-center justify-center text-center p-8 animate-fade-in" style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
+      <button onClick={onClose} className="absolute top-5 right-5 text-ink-muted hover:text-ink p-1.5" aria-label="Close"><X size={22} /></button>
+      <div className="w-20 h-20 rounded-full bg-terra-light flex items-center justify-center mb-5"><Lock size={34} className="text-terra" /></div>
+      <h2 className="font-display text-3xl text-ink mb-2">{what} is <span className="text-terra italic">Pro</span></h2>
+      <p className="text-ink-muted max-w-xs mb-8">Redeem a Pro key to unlock it. When someone sends you one, it shows up the next time you open Lull.</p>
+      <button onClick={onClose} className="px-6 py-3 rounded-full border border-cream-dark text-ink hover:border-terra hover:text-terra transition-colors font-medium">Back</button>
+    </div>
+  );
+}
+
+// ============================================================
+// ADMIN — staff-only: send Pro keys, ban users, grant roles.
+// ============================================================
+function AdminPanel({ isAdminUser, onClose }: { isAdminUser: boolean; onClose: () => void }) {
+  const [term, setTerm] = useState('');
+  const [results, setResults] = useState<CloudProfile[]>([]);
+  const [sel, setSel] = useState<CloudProfile | null>(null);
+  const [msg, setMsg] = useState('');
+  const [reason, setReason] = useState('');
+  const [dur, setDur] = useState('perm');
+
+  const search = async () => { try { setResults(await social.searchUsers(term, '')); } catch { setResults([]); } };
+  const refreshSel = async () => { if (sel) { try { const p = await social.getProfile(sel.uid); if (p) setSel(p); } catch { /* ignore */ } } };
+  const act = async (fn: () => Promise<void>, note: string) => { try { await fn(); setMsg(note); refreshSel(); } catch (e: any) { setMsg(e?.message || 'Action failed — check your permissions/rules.'); } };
+  const banActive = (u: CloudProfile) => !!u.banned && (u.banUntil === 0 || (u.banUntil || 0) > Date.now());
+  const doBan = () => { if (!sel) return; const until = dur === 'perm' ? 0 : Date.now() + (dur === '1d' ? 1 : dur === '7d' ? 7 : 30) * 86400000; act(() => social.adminBan(sel.uid, reason.trim() || 'Violation', until), `Banned @${sel.username}`); };
+
+  return (
+    <div className="fixed inset-0 z-40 bg-cream animate-fade-in flex flex-col" style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
+      <div className="flex items-center justify-between px-6 py-4 border-b border-cream-dark shrink-0">
+        <div className="flex items-center gap-2"><Shield size={18} className="text-terra" strokeWidth={1.9} /><h2 className="font-display text-xl text-ink font-medium">Admin</h2></div>
+        <button onClick={onClose} className="text-ink-muted hover:text-ink p-1.5" aria-label="Close admin"><X size={20} /></button>
+      </div>
+      <div className="flex-1 overflow-y-auto p-5 max-w-lg w-full mx-auto space-y-3">
+        <div className="flex gap-2">
+          <input value={term} onChange={e => setTerm(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') search(); }} placeholder="Search a user by @username or name" className="flex-1 bg-card border border-cream-dark rounded-2xl px-4 py-3 text-ink focus:outline-none focus:border-terra" />
+          <button onClick={search} className="px-4 rounded-2xl bg-ink text-cream shrink-0" aria-label="Search"><Search size={16} /></button>
+        </div>
+        {!sel && results.map(u => (
+          <button key={u.uid} onClick={() => { setSel(u); setMsg(''); setReason(''); }} className="w-full flex items-center gap-3 bg-card border border-cream-dark rounded-2xl p-3 text-left hover:border-terra transition-colors">
+            <div className="flex-1 min-w-0">
+              <div className="font-medium text-ink truncate">{u.displayName} {u.pro && <span className="text-[10px] text-terra font-semibold">PRO</span>} {banActive(u) && <span className="text-[10px] text-terra-dark font-semibold">BANNED</span>}</div>
+              <div className="text-xs text-ink-muted">@{u.username} · {u.role || 'user'}</div>
+            </div>
+          </button>
+        ))}
+        {!sel && !results.length && term && <p className="text-sm text-ink-muted">No users found — type a username and press Enter.</p>}
+        {sel && (
+          <div className="bg-card border border-cream-dark rounded-2xl p-4 space-y-4">
+            <div className="flex items-start justify-between">
+              <div><div className="font-display text-lg text-ink">{sel.displayName}</div><div className="text-xs text-ink-muted">@{sel.username} · role: {sel.role || 'user'}{sel.pro ? ' · PRO' : ''}{banActive(sel) ? ' · BANNED' : ''}</div></div>
+              <button onClick={() => setSel(null)} className="text-xs text-ink-muted hover:text-terra">Back</button>
+            </div>
+
+            <div className="flex gap-2">
+              <button onClick={() => act(() => social.adminSendProKey(sel.uid), `Pro key sent to @${sel.username}`)} className="flex-1 flex items-center justify-center gap-1.5 text-sm font-medium text-cream bg-terra rounded-xl py-2.5 hover:bg-terra-dark transition-colors"><Gift size={14} /> Send Pro key</button>
+              {sel.pro && <button onClick={() => act(() => social.adminRevokePro(sel.uid), `Revoked Pro from @${sel.username}`)} className="text-sm text-ink-muted border border-cream-dark rounded-xl px-3 hover:border-terra transition-colors">Revoke</button>}
+            </div>
+
+            {banActive(sel) ? (
+              <button onClick={() => act(() => social.adminUnban(sel.uid), `Unbanned @${sel.username}`)} className="w-full text-sm font-medium text-ink border border-cream-dark rounded-xl py-2.5 hover:border-terra transition-colors">Unban</button>
+            ) : (
+              <div className="space-y-2">
+                <input value={reason} onChange={e => setReason(e.target.value)} placeholder="Ban reason" className="w-full bg-cream border border-cream-dark rounded-xl px-3 py-2 text-sm text-ink focus:outline-none focus:border-terra" />
+                <div className="grid grid-cols-4 gap-1">
+                  {[['1d', '1 day'], ['7d', '7 days'], ['30d', '30 days'], ['perm', 'Forever']].map(([v, l]) => (
+                    <button key={v} onClick={() => setDur(v)} className={`py-2 rounded-lg text-xs border ${dur === v ? 'border-terra text-terra bg-terra-light' : 'border-cream-dark text-ink-muted hover:border-terra'}`}>{l}</button>
+                  ))}
+                </div>
+                <button onClick={doBan} className="w-full flex items-center justify-center gap-1.5 text-sm font-medium text-cream bg-ink rounded-xl py-2.5 hover:bg-terra transition-colors"><Ban size={14} /> Ban user</button>
+              </div>
+            )}
+
+            {isAdminUser && (
+              <div>
+                <div className="text-[11px] uppercase tracking-wider text-ink-muted mb-1.5">Permissions</div>
+                <div className="grid grid-cols-3 gap-2">
+                  {[['user', 'User'], ['mod', 'Mod'], ['admin', 'Admin']].map(([v, l]) => (
+                    <button key={v} onClick={() => act(() => social.adminSetRole(sel.uid, v), `@${sel.username} is now ${v}`)} className={`py-2 rounded-xl text-sm border-2 transition-colors ${(sel.role || 'user') === v ? 'border-terra text-terra bg-terra-light' : 'border-cream-dark text-ink-muted hover:border-terra'}`}>{l}</button>
+                  ))}
+                </div>
+              </div>
+            )}
+            {msg && <p className="text-sm text-terra-dark">{msg}</p>}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
 // FRIENDS — optional cloud account, user search, requests, list.
 // Backed by src/social.ts (Firebase). Fully separate from local login.
 // ============================================================
@@ -1325,19 +1755,33 @@ export default function App() {
   const [showSidebar, setShowSidebar] = useState(false);
   const [showNotepad, setShowNotepad] = useState(false);
   const [showFriends, setShowFriends] = useState(false);
+  const [showCode, setShowCode] = useState(false);
+  const [showLogbook, setShowLogbook] = useState(false);
+  const [code, setCode] = useState<CodeData>(DEFAULT_CODE_DATA());
   const [notes, setNotes] = useState<Note[]>([]);
   const [cloudUid, setCloudUid] = useState<string | null>(null);
   const [sharedReminders, setSharedReminders] = useState<any[]>([]);
   const [openSpace, setOpenSpace] = useState<{ id: string; withName: string } | null>(null);
+  const [cloudPro, setCloudPro] = useState(false);
+  const [pendingPro, setPendingPro] = useState(false);
+  const [dismissRedeem, setDismissRedeem] = useState(false);
+  const [cloudProfile, setCloudProfile] = useState<any>(null);
+  const [showAdmin, setShowAdmin] = useState(false);
   const [settingsCat, setSettingsCat] = useState('account'); // active settings category
   const anyPanelOpen = showSettings || showStats || showNotepad || showFriends || !!openSpace;
-  const closeAllPanels = () => { setShowSettings(false); setShowStats(false); setShowNotepad(false); setShowFriends(false); setOpenSpace(null); };
+  const closeAllPanels = () => { setShowSettings(false); setShowStats(false); setShowNotepad(false); setShowFriends(false); setShowCode(false); setShowLogbook(false); setShowAdmin(false); setOpenSpace(null); };
 
   // shared reminders (from friends) mapped into the same shape as local ones
   const sharedAsReminders = sharedReminders.map((s: any) => ({
     id: s.id, title: s.title, description: s.description, triggerAt: s.triggerAt,
     repeat: s.repeat, dismissed: false, shared: true, sharedId: s.id, withName: s.withName,
   }));
+
+  // admin / moderation status (from my cloud account)
+  const myRole: string = cloudProfile?.role || 'user';
+  const isAdminUser = cloudProfile?.username === 'duckworks' || myRole === 'admin';
+  const isStaff = isAdminUser || myRole === 'mod';
+  const banActive = !!cloudProfile?.banned && (cloudProfile.banUntil === 0 || (cloudProfile.banUntil || 0) > Date.now());
 
   // ============ TASK / MACRO STATE ============
   const [tasks, setTasks] = useState<Macro[]>([]);
@@ -1430,6 +1874,12 @@ export default function App() {
       const rawN = localStorage.getItem(`lull-notes-${u.username.toLowerCase()}`);
       setNotes(rawN ? JSON.parse(rawN) : []);
     } catch { setNotes([]); }
+    try {
+      const greet = (u.settings?.displayName || u.username || 'there');
+      const rawC = localStorage.getItem(`lull-code-${u.username.toLowerCase()}`);
+      const parsed = rawC ? JSON.parse(rawC) : null;
+      setCode(parsed && parsed.projects?.length ? parsed : DEFAULT_CODE_DATA(greet));
+    } catch { setCode(DEFAULT_CODE_DATA()); }
     setLoaded(true);
   };
 
@@ -1457,6 +1907,12 @@ export default function App() {
     try { localStorage.setItem(`lull-notes-${user.username.toLowerCase()}`, JSON.stringify(notes)); } catch { /* quota */ }
   }, [notes, loaded]);
 
+  // persist coding-sandbox projects to localStorage
+  useEffect(() => {
+    if (!loaded || isAlertWindow || !user) return;
+    try { localStorage.setItem(`lull-code-${user.username.toLowerCase()}`, JSON.stringify(code)); } catch { /* quota */ }
+  }, [code, loaded]);
+
   // cloud auth at app level (verified users only) — powers shared reminders on the home screen
   useEffect(() => {
     if (isAlertWindow) return;
@@ -1467,6 +1923,13 @@ export default function App() {
   useEffect(() => {
     if (isAlertWindow || !cloudUid) { setSharedReminders([]); return; }
     const off = social.watchSharedReminders(cloudUid, list => setSharedReminders(list));
+    return () => off();
+  }, [cloudUid]);
+
+  // live Pro / pending-key / role / ban status from my cloud account
+  useEffect(() => {
+    if (isAlertWindow || !cloudUid) { setCloudPro(false); setPendingPro(false); setCloudProfile(null); return; }
+    const off = social.watchMyDoc(cloudUid, p => { setCloudPro(!!p?.pro); setPendingPro(!!p?.pendingPro); setCloudProfile(p); });
     return () => off();
   }, [cloudUid]);
 
@@ -1776,12 +2239,17 @@ export default function App() {
     setSettings(DEFAULT_SETTINGS);
     setGame(DEFAULT_GAME);
     setNotes([]);
+    setCode(DEFAULT_CODE_DATA());
     setLoaded(false);
     setShowSettings(false);
     setShowStats(false);
     setShowNotepad(false);
     setShowFriends(false);
+    setShowCode(false);
+    setShowLogbook(false);
+    setShowAdmin(false);
     setShowSidebar(false);
+    setCloudPro(false); setPendingPro(false); setDismissRedeem(false); setCloudProfile(null);
     social.cloudSignOut().catch(() => {});
   };
 
@@ -2169,11 +2637,14 @@ export default function App() {
               {/* nav */}
               <nav className="flex-1 overflow-y-auto p-4 space-y-1.5">
                 {[
-                  { key: 'home',    label: 'Home',        icon: Home,      onClick: () => { closeAllPanels(); setShowSidebar(false); } },
-                  { key: 'stats',   label: 'Stats & achievements', icon: Trophy, onClick: () => { closeAllPanels(); setShowStats(true); setShowSidebar(false); } },
-                  { key: 'notepad', label: 'Notepad',     icon: Pencil,    onClick: () => { closeAllPanels(); setShowNotepad(true); setShowSidebar(false); } },
-                  { key: 'friends', label: 'Friends',     icon: Users,     onClick: () => { closeAllPanels(); setShowFriends(true); setShowSidebar(false); } },
-                  { key: 'settings',label: 'Settings',    icon: Settings,  onClick: () => { closeAllPanels(); setShowSettings(true); setShowSidebar(false); } },
+                  { key: 'home',    label: 'Home',        icon: Home,      locked: false, onClick: () => { closeAllPanels(); setShowSidebar(false); } },
+                  { key: 'stats',   label: 'Stats & achievements', icon: Trophy, locked: false, onClick: () => { closeAllPanels(); setShowStats(true); setShowSidebar(false); } },
+                  { key: 'notepad', label: 'Notepad',     icon: Pencil,    locked: false, onClick: () => { closeAllPanels(); setShowNotepad(true); setShowSidebar(false); } },
+                  { key: 'code',    label: 'Code',        icon: Code2,     locked: !cloudPro, onClick: () => { closeAllPanels(); setShowCode(true); setShowSidebar(false); } },
+                  { key: 'logbook', label: 'Logbook',     icon: BookOpen,  locked: !cloudPro, onClick: () => { closeAllPanels(); setShowLogbook(true); setShowSidebar(false); } },
+                  { key: 'friends', label: 'Friends',     icon: Users,     locked: false, onClick: () => { closeAllPanels(); setShowFriends(true); setShowSidebar(false); } },
+                  { key: 'settings',label: 'Settings',    icon: Settings,  locked: false, onClick: () => { closeAllPanels(); setShowSettings(true); setShowSidebar(false); } },
+                  ...(isStaff ? [{ key: 'admin', label: 'Admin', icon: Shield, locked: false, onClick: () => { closeAllPanels(); setShowAdmin(true); setShowSidebar(false); } }] : []),
                 ].map(item => (
                   <button
                     key={item.key}
@@ -2182,6 +2653,7 @@ export default function App() {
                   >
                     <item.icon size={19} strokeWidth={1.9} className="text-terra"/>
                     <span className="font-medium">{item.label}</span>
+                    {item.locked && <Lock size={13} className="ml-auto text-ink-muted" />}
                   </button>
                 ))}
               </nav>
@@ -2204,9 +2676,52 @@ export default function App() {
           <NotepadPanel notes={notes} setNotes={setNotes} theme={settings.theme} onClose={() => setShowNotepad(false)} />
         )}
 
+        {/* ============ CODE SANDBOX (Pro) ============ */}
+        {showCode && (cloudPro
+          ? <CodePanel data={code} setData={setCode} theme={settings.theme} greet={settings.displayName || user.username} cfg={{ font: settings.codeFont, size: settings.codeFontSize, theme: settings.codeTheme, tab: settings.codeTabSize, wrap: settings.codeWrap, live: settings.codeLivePreview, lineNumbers: settings.codeLineNumbers }} onLogbook={() => setShowLogbook(true)} onClose={() => setShowCode(false)} />
+          : <ProLocked what="The coding sandbox" onClose={() => setShowCode(false)} />
+        )}
+
+        {/* ============ LOGBOOK (Pro) ============ */}
+        {showLogbook && (cloudPro
+          ? <LogbookPanel theme={settings.theme} onClose={() => setShowLogbook(false)} />
+          : <ProLocked what="The logbook" onClose={() => setShowLogbook(false)} />
+        )}
+
+        {/* ============ REDEEM PRO POPUP ============ */}
+        {pendingPro && !cloudPro && !dismissRedeem && cloudUid && (
+          <div className="fixed inset-0 z-[70] flex items-center justify-center p-6 bg-ink/50 backdrop-blur-sm">
+            <div className="relative bg-cream rounded-3xl w-full max-w-md p-10 text-center border-2 border-terra shadow-2xl animate-slide-down">
+              <button onClick={() => setDismissRedeem(true)} className="absolute top-4 right-4 text-ink-muted hover:text-ink p-1" aria-label="Close"><X size={22} /></button>
+              <div className="w-20 h-20 rounded-full bg-terra-light flex items-center justify-center mx-auto mb-5"><Gift size={40} className="text-terra" strokeWidth={1.6} /></div>
+              <h2 className="font-display text-3xl text-ink mb-2">A gift for you!</h2>
+              <p className="text-ink-muted mb-8">You've been given <span className="text-terra font-medium">Lull Pro</span>. Redeem it to unlock Pro features.</p>
+              <button onClick={() => { social.redeemPro(cloudUid).catch(() => {}); setToast('Lull Pro unlocked! 🎉'); }} className="w-full py-4 rounded-full bg-terra text-cream text-lg font-medium hover:bg-terra-dark transition-colors">Redeem</button>
+            </div>
+          </div>
+        )}
+
         {/* ============ FRIENDS (cloud account) ============ */}
         {showFriends && (
           <FriendsPanel localUsername={user.username} settings={settings} game={game} reminders={reminders} onOpenSpace={(id, withName) => { setShowFriends(false); setOpenSpace({ id, withName }); }} onClose={() => setShowFriends(false)} />
+        )}
+
+        {/* ============ ADMIN (staff only) ============ */}
+        {showAdmin && isStaff && (
+          <AdminPanel isAdminUser={isAdminUser} onClose={() => setShowAdmin(false)} />
+        )}
+
+        {/* ============ BAN OVERLAY (blocks the cloud account) ============ */}
+        {banActive && cloudProfile && (
+          <div className="fixed inset-0 z-[80] bg-ink/80 backdrop-blur-sm flex items-center justify-center p-8 text-center">
+            <div className="bg-cream rounded-3xl max-w-md w-full p-8 border-2 border-terra shadow-2xl">
+              <AlertTriangle size={40} className="text-terra mx-auto mb-4" strokeWidth={1.7} />
+              <h2 className="font-display text-2xl text-ink mb-2">Your account is banned</h2>
+              <p className="text-ink-muted mb-1">Reason: {cloudProfile.banReason || 'Violation of the rules.'}</p>
+              <p className="text-ink-muted mb-6">{cloudProfile.banUntil === 0 ? 'This ban is permanent.' : `Until ${new Date(cloudProfile.banUntil).toLocaleString()}`}</p>
+              <button onClick={() => social.cloudSignOut().catch(() => {})} className="px-6 py-3 rounded-full bg-terra text-cream font-medium hover:bg-terra-dark transition-colors">Sign out of cloud account</button>
+            </div>
+          </div>
         )}
 
         {/* ============ SHARED NOTEPAD ============ */}
@@ -2924,6 +3439,34 @@ export default function App() {
                     </div>
                   )}
 
+                  {settingsCat === 'coding' && (<>
+                    <div>
+                      <label className="text-xs uppercase tracking-wider text-ink-muted block mb-2">Editor font</label>
+                      <Segmented value={settings.codeFont} onChange={v => setSettings(s => ({ ...s, codeFont: v }))} options={[{ value: 'mono', label: 'Mono' }, { value: 'menlo', label: 'Menlo' }, { value: 'courier', label: 'Courier' }, { value: 'system', label: 'System' }]} />
+                    </div>
+                    <div>
+                      <label className="text-xs uppercase tracking-wider text-ink-muted block mb-2">Font size</label>
+                      <div className="flex items-center gap-3">
+                        <button onClick={() => setSettings(s => ({ ...s, codeFontSize: Math.max(10, s.codeFontSize - 1) }))} className="w-9 h-9 rounded-xl border border-cream-dark text-ink hover:border-terra transition-colors">−</button>
+                        <span className="font-display text-lg w-10 text-center">{settings.codeFontSize}</span>
+                        <button onClick={() => setSettings(s => ({ ...s, codeFontSize: Math.min(22, s.codeFontSize + 1) }))} className="w-9 h-9 rounded-xl border border-cream-dark text-ink hover:border-terra transition-colors">+</button>
+                        <span className="text-sm text-ink-muted ml-1" style={{ fontFamily: (CODE_FONTS[settings.codeFont] || CODE_FONTS.mono).stack, fontSize: settings.codeFontSize }}>Aa 123</span>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-xs uppercase tracking-wider text-ink-muted block mb-2">Editor theme</label>
+                      <Segmented value={settings.codeTheme} onChange={v => setSettings(s => ({ ...s, codeTheme: v }))} options={[{ value: 'match', label: 'Match' }, { value: 'light', label: 'Light' }, { value: 'dark', label: 'Dark' }, { value: 'contrast', label: 'Contrast' }]} />
+                    </div>
+                    <div>
+                      <label className="text-xs uppercase tracking-wider text-ink-muted block mb-2">Tab size</label>
+                      <Segmented value={String(settings.codeTabSize)} onChange={v => setSettings(s => ({ ...s, codeTabSize: parseInt(v) || 2 }))} options={[{ value: '2', label: '2 spaces' }, { value: '4', label: '4 spaces' }]} />
+                    </div>
+                    <div className="flex"><ToggleRow label="Word wrap" value={settings.codeWrap} onChange={v => setSettings(s => ({ ...s, codeWrap: v }))} /></div>
+                    <div className="flex"><ToggleRow label="Line numbers" value={settings.codeLineNumbers} onChange={v => setSettings(s => ({ ...s, codeLineNumbers: v }))} /></div>
+                    <div className="flex"><ToggleRow label="Live preview (auto-refresh)" value={settings.codeLivePreview} onChange={v => setSettings(s => ({ ...s, codeLivePreview: v }))} /></div>
+                    <p className="text-xs text-ink-muted -mt-1">With live preview off, a Run button appears in the Code panel to refresh the page.</p>
+                  </>)}
+
                   {settingsCat === 'general' && (
                     <div className="space-y-4">
                       <div className="flex"><ToggleRow label="Set timezone automatically" value={!!settings.autoTimezone} onChange={v => setSettings(s => ({ ...s, autoTimezone: v, timezone: v ? 'auto' : (s.timezone === 'auto' ? Intl.DateTimeFormat().resolvedOptions().timeZone : s.timezone) }))} /></div>
@@ -2950,6 +3493,7 @@ export default function App() {
                     { key: 'sound', label: 'Sound', icon: Volume2, show: true },
                     { key: 'reminders', label: 'Automations', icon: Zap, show: !isNative },
                     { key: 'goals', label: 'Goals', icon: Target, show: true },
+                    { key: 'coding', label: 'Coding', icon: Code2, show: true },
                     { key: 'general', label: 'General', icon: Clock, show: true },
                   ].filter(ct => ct.show).map(ct => (
                     <button key={ct.key} onClick={() => setSettingsCat(ct.key)} className={`shrink-0 sm:w-full flex items-center gap-2 px-3 py-2 sm:py-2.5 rounded-xl text-sm font-medium whitespace-nowrap transition-colors text-left ${settingsCat === ct.key ? 'bg-terra-light text-terra-dark' : 'text-ink-muted hover:text-ink hover:bg-card'}`}>

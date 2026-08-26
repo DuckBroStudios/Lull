@@ -5,13 +5,48 @@ service cloud.firestore {
     function signedIn() { return request.auth != null; }
     function isSelf(uid) { return request.auth != null && request.auth.uid == uid; }
 
+    // @duckworks is the root admin; they can promote others to admin/mod.
+    function isRoot() {
+      return request.auth != null
+        && exists(/databases/$(database)/documents/usernames/duckworks)
+        && get(/databases/$(database)/documents/usernames/duckworks).data.uid == request.auth.uid;
+    }
+    function myRole() {
+      return (request.auth != null && exists(/databases/$(database)/documents/users/$(request.auth.uid)))
+        ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', 'user') : 'user';
+    }
+    function isAdmin() { return isRoot() || myRole() == 'admin'; }
+    function isStaff() { return isAdmin() || myRole() == 'mod'; }
+    function notBanned() {
+      return !(request.auth != null && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('banned', false) == true
+        && (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('banUntil', 0) == 0
+            || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('banUntil', 0) > request.time.toMillis()));
+    }
+
     match /users/{uid} {
       allow read: if signedIn();
-      allow write: if isSelf(uid);
+      allow create: if isSelf(uid);
+      allow delete: if isSelf(uid) || isAdmin();
+      // Admins: full control. Mods: everything except changing roles. Owner:
+      // profile only — can't touch role/ban, can't self-grant Pro (only redeem
+      // a pending key an admin set), and is blocked while banned.
+      allow update: if isAdmin()
+        || ( isStaff()
+             && request.resource.data.get('role', 'user') == resource.data.get('role', 'user') )
+        || ( isSelf(uid) && notBanned()
+             && request.resource.data.get('role', 'user') == resource.data.get('role', 'user')
+             && request.resource.data.get('banned', false) == resource.data.get('banned', false)
+             && request.resource.data.get('banUntil', 0) == resource.data.get('banUntil', 0)
+             && (request.resource.data.get('pro', false) != true
+                 || resource.data.get('pro', false) == true
+                 || resource.data.get('pendingPro', false) == true)
+             && (request.resource.data.get('pendingPro', false) != true
+                 || resource.data.get('pendingPro', false) == true) );
 
       match /requests/{fromUid} {
         allow read, delete: if isSelf(uid);
-        allow create: if signedIn() && request.auth.uid == fromUid;
+        allow create: if signedIn() && request.auth.uid == fromUid && notBanned();
       }
 
       match /friends/{friendUid} {
@@ -29,14 +64,14 @@ service cloud.firestore {
     // Reminders shared between friends — only members can see or change them.
     match /sharedReminders/{id} {
       allow read:          if signedIn() && request.auth.uid in resource.data.members;
-      allow create:        if signedIn() && request.auth.uid in request.resource.data.members;
+      allow create:        if signedIn() && notBanned() && request.auth.uid in request.resource.data.members;
       allow update, delete: if signedIn() && request.auth.uid in resource.data.members;
     }
 
     // Shared notepad spaces + their notes — only members can see or edit.
     match /spaces/{id} {
       allow read:          if signedIn() && request.auth.uid in resource.data.members;
-      allow create:        if signedIn() && request.auth.uid in request.resource.data.members;
+      allow create:        if signedIn() && notBanned() && request.auth.uid in request.resource.data.members;
       allow update, delete: if signedIn() && request.auth.uid in resource.data.members;
 
       match /notes/{noteId} {

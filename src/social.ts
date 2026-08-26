@@ -22,6 +22,12 @@ export interface CloudProfile {
   photoVisible: boolean;
   xp?: number;           // published for the friends leaderboard
   streak?: number;
+  pro?: boolean;         // Pro features unlocked
+  pendingPro?: boolean;  // an admin sent a Pro key; user can redeem it
+  banned?: boolean;      // set by an admin
+  banReason?: string;
+  banUntil?: number;     // 0 = permanent, else timestamp
+  role?: string;         // 'admin' | 'mod' | 'user'
 }
 
 export interface FriendRequest { fromUid: string; fromUsername: string; fromName: string }
@@ -110,6 +116,23 @@ export async function getProfile(uid: string): Promise<CloudProfile | null> {
   const snap = await getDoc(doc(db, 'users', uid));
   return snap.exists() ? (snap.data() as CloudProfile) : null;
 }
+
+// Live subscription to my own account doc (pro / pending / ban status).
+export function watchMyDoc(uid: string, cb: (p: CloudProfile | null) => void): () => void {
+  return onSnapshot(doc(db, 'users', uid), snap => cb(snap.exists() ? (snap.data() as CloudProfile) : null), () => cb(null));
+}
+
+// Redeem a pending Pro grant (only works because an admin set pendingPro; rules enforce this).
+export async function redeemPro(uid: string): Promise<void> {
+  await updateDoc(doc(db, 'users', uid), { pro: true, pendingPro: false });
+}
+
+// ---- admin actions (rules enforce that only staff/admins can do these) ----
+export async function adminSendProKey(uid: string): Promise<void> { await updateDoc(doc(db, 'users', uid), { pendingPro: true }); }
+export async function adminRevokePro(uid: string): Promise<void> { await updateDoc(doc(db, 'users', uid), { pro: false, pendingPro: false }); }
+export async function adminBan(uid: string, reason: string, until: number): Promise<void> { await updateDoc(doc(db, 'users', uid), { banned: true, banReason: reason, banUntil: until }); }
+export async function adminUnban(uid: string): Promise<void> { await updateDoc(doc(db, 'users', uid), { banned: false, banReason: '', banUntil: 0 }); }
+export async function adminSetRole(uid: string, role: string): Promise<void> { await updateDoc(doc(db, 'users', uid), { role }); }
 
 // Push the latest local profile up to the cloud (called when settings change).
 export async function syncProfile(uid: string, username: string, p: ProfileInput): Promise<void> {
