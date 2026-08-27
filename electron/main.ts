@@ -142,9 +142,9 @@ ipcMain.on('close-alert', () => {
   }
 })
 
-ipcMain.on('alert-action', (_event, action: 'dismiss' | 'snooze', reminderId: number) => {
+ipcMain.on('alert-action', (_event, action: 'dismiss' | 'snooze', reminderId: number, mins?: number) => {
   // forward back to main window so it can update state
-  win?.webContents.send('alert-action', action, reminderId)
+  win?.webContents.send('alert-action', action, reminderId, mins)
   if (alertWin) {
     alertWin.close()
     alertWin = null

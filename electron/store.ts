@@ -54,6 +54,7 @@ export interface UserSettings {
   codeWrap: boolean
   codeLivePreview: boolean
   codeLineNumbers: boolean
+  clock24h: boolean
 }
 
 interface StoreFile {
@@ -95,6 +96,7 @@ const DEFAULT_SETTINGS: UserSettings = {
   codeWrap: false,
   codeLivePreview: true,
   codeLineNumbers: false,
+  clock24h: true,
 }
 
 function storePath(): string {

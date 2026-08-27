@@ -61,6 +61,12 @@ service cloud.firestore {
       allow update, delete: if signedIn() && resource.data.uid == request.auth.uid;
     }
 
+    // Global events / announcements — anyone can read, only staff can set.
+    match /config/{doc} {
+      allow read: if true;
+      allow write: if isStaff();
+    }
+
     // Reminders shared between friends — only members can see or change them.
     match /sharedReminders/{id} {
       allow read:          if signedIn() && request.auth.uid in resource.data.members;

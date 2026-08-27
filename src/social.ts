@@ -134,6 +134,21 @@ export async function adminBan(uid: string, reason: string, until: number): Prom
 export async function adminUnban(uid: string): Promise<void> { await updateDoc(doc(db, 'users', uid), { banned: false, banReason: '', banUntil: 0 }); }
 export async function adminSetRole(uid: string, role: string): Promise<void> { await updateDoc(doc(db, 'users', uid), { role }); }
 
+// ---- global events / broadcast (one shared config doc everyone reads) ----
+export interface GlobalConfig { announce?: string; rushMultiplier?: number; rushEndsAt?: number; updatedBy?: string }
+export function watchGlobal(cb: (g: GlobalConfig | null) => void): () => void {
+  return onSnapshot(doc(db, 'config', 'global'), snap => cb(snap.exists() ? (snap.data() as GlobalConfig) : null), () => cb(null));
+}
+export async function adminStartRush(multiplier: number, minutes: number, by: string): Promise<void> {
+  await setDoc(doc(db, 'config', 'global'), { rushMultiplier: multiplier, rushEndsAt: Date.now() + minutes * 60000, updatedBy: by }, { merge: true });
+}
+export async function adminStopRush(): Promise<void> {
+  await setDoc(doc(db, 'config', 'global'), { rushMultiplier: 1, rushEndsAt: 0 }, { merge: true });
+}
+export async function adminSetAnnounce(text: string, by: string): Promise<void> {
+  await setDoc(doc(db, 'config', 'global'), { announce: text, updatedBy: by }, { merge: true });
+}
+
 // Push the latest local profile up to the cloud (called when settings change).
 export async function syncProfile(uid: string, username: string, p: ProfileInput): Promise<void> {
   await setDoc(doc(db, 'users', uid), profileDoc(uid, username, p), { merge: true });

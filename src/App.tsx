@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Plus, X, Image as ImageIcon, Trash2, AlarmClock, Bell, Clock, Settings, LogOut, User, Moon, Sun, Volume2, VolumeX, Eye, EyeOff, Zap, Play, Square, MousePointerClick, Keyboard, Type, Move, Pencil, ChevronLeft, AlertTriangle, Music, Pause, Lock, Flame, Trophy, Target, TrendingUp, Gift, BarChart3, Sparkles, Home, Palette, Upload, ZoomIn, ZoomOut, Users, Search, UserPlus, Check, Code2, FilePlus, FolderPlus, BookOpen, Shield, Ban } from 'lucide-react';
+import { Plus, X, Image as ImageIcon, Trash2, AlarmClock, Bell, Clock, Settings, LogOut, User, Moon, Sun, Volume2, VolumeX, Eye, EyeOff, Zap, Play, Square, MousePointerClick, Keyboard, Type, Move, Pencil, ChevronLeft, AlertTriangle, Music, Pause, Lock, Flame, Trophy, Target, TrendingUp, Gift, BarChart3, Sparkles, Home, Palette, Upload, ZoomIn, ZoomOut, Users, Search, UserPlus, Check, Code2, FilePlus, FolderPlus, BookOpen, Shield, Ban, Pin, Copy, Feather, Download, Snowflake } from 'lucide-react';
 import { isNative, requestReminderPermission, syncReminderNotifications } from './notifications';
 import * as social from './social';
 import type { CloudProfile, Friend, FriendRequest } from './social';
@@ -54,6 +54,7 @@ interface UserSettings {
   codeWrap: boolean;
   codeLivePreview: boolean;
   codeLineNumbers: boolean;
+  clock24h: boolean;
 }
 interface SessionUser {
   username: string;
@@ -95,6 +96,7 @@ const DEFAULT_SETTINGS: UserSettings = {
   codeWrap: false,
   codeLivePreview: true,
   codeLineNumbers: false,
+  clock24h: true,
 };
 
 // ============ DELIGHT: backgrounds, seasons, sound packs, greeting, icons ============
@@ -229,6 +231,29 @@ function greetingText(settings: UserSettings, now: number): string {
   const h = new Date(now).getHours();
   const part = h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening';
   return settings.displayName ? `${part}, ${settings.displayName}` : part;
+}
+
+// A small calming line that changes once per day (deterministic, no repeats within the set).
+const CALM_QUOTES: string[] = [
+  'One thing at a time is still progress.',
+  'You don’t have to do it all today.',
+  'Small steps count. Take one.',
+  'Breathe. The list can wait a moment.',
+  'Done is kinder than perfect.',
+  'Rest is part of the work.',
+  'Be where your feet are.',
+  'Gentle and steady wins the day.',
+  'Every reminder is a tiny act of care for future you.',
+  'Progress, not pressure.',
+  'You are allowed to begin again, anytime.',
+  'A calm mind is a productive one.',
+  'Today only needs the next right thing.',
+  'Slow is smooth, and smooth is fast.',
+  'Let the little wins add up.',
+];
+function dailyQuote(now: number): string {
+  const dayNumber = Math.floor(now / 86400000); // days since epoch
+  return CALM_QUOTES[dayNumber % CALM_QUOTES.length];
 }
 
 const SOUND_PACKS: Record<string, { label: string; files: string[] }> = {
@@ -521,6 +546,7 @@ interface GameState {
   reward: CustomReward | null;
   celebratedDay: string;        // 'YYYY-MM-DD' confetti last fired
   iconProgress: Record<string, number>; // completions per season/holiday, for icon unlocks
+  freezes: number;              // streak freezes — auto-saves the streak after a missed day
 }
 
 // Completions in a season/holiday needed to permanently unlock its app icon.
@@ -528,7 +554,7 @@ const ICON_UNLOCK_THRESHOLD = 3;
 
 const DEFAULT_GAME: GameState = {
   xp: 0, completedTotal: 0, missedTotal: 0, streak: 0, bestStreak: 0,
-  lastStreakDay: '', achievements: [], history: {}, reward: null, celebratedDay: '', iconProgress: {},
+  lastStreakDay: '', achievements: [], history: {}, reward: null, celebratedDay: '', iconProgress: {}, freezes: 0,
 };
 
 const dayKey = (ts: number): string => {
@@ -562,25 +588,29 @@ const ACHIEVEMENTS: AchievementDef[] = [
 ];
 
 // Record a completion and return the next game state (+ any newly unlocked ids).
-function applyCompletion(g: GameState, onTime: boolean, now: number): { next: GameState; unlocked: string[] } {
+function applyCompletion(g: GameState, onTime: boolean, now: number, mult: number = 1): { next: GameState; unlocked: string[] } {
   const today = dayKey(now);
   const hist = { ...g.history };
   const d = hist[today] || { completed: 0, missed: 0 };
   hist[today] = { ...d, completed: d.completed + 1 };
 
-  let { streak, bestStreak, lastStreakDay } = g;
+  let { streak, bestStreak, lastStreakDay, freezes } = g;
   if (onTime && lastStreakDay !== today) {
     const yesterday = dayKey(now - 86400000);
-    streak = lastStreakDay === yesterday ? streak + 1 : 1;
+    const twoDaysAgo = dayKey(now - 2 * 86400000);
+    if (lastStreakDay === yesterday) streak += 1;
+    else if (lastStreakDay === twoDaysAgo && (freezes || 0) > 0) { streak += 1; freezes = (freezes || 0) - 1; } // freeze saves a single missed day
+    else streak = 1;
     lastStreakDay = today;
     bestStreak = Math.max(bestStreak, streak);
+    if (streak > 0 && streak % 7 === 0 && (freezes || 0) < 3) freezes = (freezes || 0) + 1; // earn a freeze each 7-day streak (max 3)
   }
 
   const next: GameState = {
     ...g,
-    xp: g.xp + XP_PER_COMPLETION + (onTime ? XP_ONTIME_BONUS : 0),
+    xp: g.xp + Math.round((XP_PER_COMPLETION + (onTime ? XP_ONTIME_BONUS : 0)) * mult),
     completedTotal: g.completedTotal + 1,
-    streak, bestStreak, lastStreakDay,
+    streak, bestStreak, lastStreakDay, freezes,
     history: hist,
   };
 
@@ -1384,13 +1414,18 @@ function ProLocked({ what, onClose }: { what: string; onClose: () => void }) {
 // ============================================================
 // ADMIN — staff-only: send Pro keys, ban users, grant roles.
 // ============================================================
-function AdminPanel({ isAdminUser, onClose }: { isAdminUser: boolean; onClose: () => void }) {
+function AdminPanel({ isAdminUser, liveEvent, by, onClose }: { isAdminUser: boolean; liveEvent: any; by: string; onClose: () => void }) {
   const [term, setTerm] = useState('');
   const [results, setResults] = useState<CloudProfile[]>([]);
   const [sel, setSel] = useState<CloudProfile | null>(null);
   const [msg, setMsg] = useState('');
   const [reason, setReason] = useState('');
   const [dur, setDur] = useState('perm');
+  const [rushX, setRushX] = useState(2);
+  const [rushMin, setRushMin] = useState(15);
+  const [announce, setAnnounce] = useState(liveEvent?.announce || '');
+  const rushOn = liveEvent && (liveEvent.rushMultiplier || 1) > 1 && (liveEvent.rushEndsAt || 0) > Date.now();
+  const rushMins = rushOn ? Math.max(1, Math.ceil((liveEvent.rushEndsAt - Date.now()) / 60000)) : 0;
 
   const search = async () => { try { setResults(await social.searchUsers(term, '')); } catch { setResults([]); } };
   const refreshSel = async () => { if (sel) { try { const p = await social.getProfile(sel.uid); if (p) setSel(p); } catch { /* ignore */ } } };
@@ -1405,6 +1440,37 @@ function AdminPanel({ isAdminUser, onClose }: { isAdminUser: boolean; onClose: (
         <button onClick={onClose} className="text-ink-muted hover:text-ink p-1.5" aria-label="Close admin"><X size={20} /></button>
       </div>
       <div className="flex-1 overflow-y-auto p-5 max-w-lg w-full mx-auto space-y-3">
+        {/* Global events */}
+        <div className="bg-card border border-cream-dark rounded-2xl p-4 space-y-3">
+          <div className="flex items-center gap-2"><Sparkles size={15} className="text-terra" strokeWidth={2} /><span className="font-medium text-ink">Reminder Rush</span></div>
+          {rushOn ? (
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-ink flex-1">{liveEvent.rushMultiplier}× active · ends in {rushMins}m</span>
+              <button onClick={() => act(() => social.adminStopRush(), 'Rush stopped.')} className="text-sm text-ink-muted border border-cream-dark rounded-xl px-3 py-1.5 hover:border-terra transition-colors">Stop</button>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <div className="grid grid-cols-2 gap-2">
+                <select value={rushX} onChange={e => setRushX(parseInt(e.target.value))} className="bg-cream border border-cream-dark rounded-xl px-3 py-2 text-sm text-ink focus:outline-none focus:border-terra">
+                  <option value={2}>2× XP</option><option value={3}>3× XP</option><option value={5}>5× XP</option>
+                </select>
+                <select value={rushMin} onChange={e => setRushMin(parseInt(e.target.value))} className="bg-cream border border-cream-dark rounded-xl px-3 py-2 text-sm text-ink focus:outline-none focus:border-terra">
+                  <option value={5}>5 min</option><option value={15}>15 min</option><option value={30}>30 min</option><option value={60}>60 min</option>
+                </select>
+              </div>
+              <button onClick={() => act(() => social.adminStartRush(rushX, rushMin, by), `${rushX}× rush started for ${rushMin}m`)} className="w-full bg-terra text-cream rounded-xl py-2.5 text-sm font-medium hover:bg-terra-dark transition-colors">Start rush</button>
+            </div>
+          )}
+          <div className="pt-3 border-t border-cream-dark">
+            <div className="text-[11px] uppercase tracking-wider text-ink-muted mb-1.5">Announcement (shown to everyone)</div>
+            <input value={announce} onChange={e => setAnnounce(e.target.value)} placeholder="e.g. New update out now!" className="w-full bg-cream border border-cream-dark rounded-xl px-3 py-2 text-sm text-ink focus:outline-none focus:border-terra" />
+            <div className="flex gap-2 mt-2">
+              <button onClick={() => act(() => social.adminSetAnnounce(announce.trim(), by), 'Announcement set.')} className="flex-1 bg-ink text-cream rounded-xl py-2 text-sm hover:bg-terra transition-colors">Set</button>
+              <button onClick={() => { setAnnounce(''); act(() => social.adminSetAnnounce('', by), 'Announcement cleared.'); }} className="text-sm text-ink-muted border border-cream-dark rounded-xl px-3 hover:border-terra transition-colors">Clear</button>
+            </div>
+          </div>
+        </div>
+
         <div className="flex gap-2">
           <input value={term} onChange={e => setTerm(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') search(); }} placeholder="Search a user by @username or name" className="flex-1 bg-card border border-cream-dark rounded-2xl px-4 py-3 text-ink focus:outline-none focus:border-terra" />
           <button onClick={search} className="px-4 rounded-2xl bg-ink text-cream shrink-0" aria-label="Search"><Search size={16} /></button>
@@ -1767,6 +1833,7 @@ export default function App() {
   const [dismissRedeem, setDismissRedeem] = useState(false);
   const [cloudProfile, setCloudProfile] = useState<any>(null);
   const [showAdmin, setShowAdmin] = useState(false);
+  const [liveEvent, setLiveEvent] = useState<any>(null);   // global rush / announcement
   const [settingsCat, setSettingsCat] = useState('account'); // active settings category
   const anyPanelOpen = showSettings || showStats || showNotepad || showFriends || !!openSpace;
   const closeAllPanels = () => { setShowSettings(false); setShowStats(false); setShowNotepad(false); setShowFriends(false); setShowCode(false); setShowLogbook(false); setShowAdmin(false); setOpenSpace(null); };
@@ -1805,6 +1872,9 @@ export default function App() {
   const [date, setDate] = useState('');
   const [time, setTime] = useState('');
   const [repeat, setRepeat] = useState('none');
+  const [color, setColor] = useState('');            // optional colour label for a reminder
+  const [reminderSearch, setReminderSearch] = useState('');
+  const [undoReminder, setUndoReminder] = useState<any>(null); // last deleted, for undo
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const avatarInputRef = useRef<HTMLInputElement>(null);
@@ -1889,6 +1959,13 @@ export default function App() {
     return () => clearInterval(id);
   }, []);
 
+  // global admin events (rush / announcement) — visible to everyone
+  useEffect(() => {
+    if (isAlertWindow) return;
+    const off = social.watchGlobal(g => setLiveEvent(g));
+    return () => off();
+  }, []);
+
   // save reminders whenever they change (per-account, after initial load)
   useEffect(() => {
     if (!loaded || isAlertWindow || !user) return;
@@ -1955,9 +2032,11 @@ export default function App() {
     const iconExists = APP_ICONS.some(ic => ic.key === period && ic.period !== 'any');
     const newCount = (game.iconProgress[period] || 0) + 1;
     const alreadyUnlocked = settings.unlockedIcons.includes(period);
+    // 2x-XP "Reminder Rush" if an admin has one running
+    const rushMult = (liveEvent && (liveEvent.rushMultiplier || 1) > 1 && (liveEvent.rushEndsAt || 0) > nowTs) ? liveEvent.rushMultiplier : 1;
 
     setGame(g => {
-      const { next, unlocked } = applyCompletion(g, onTime, nowTs);
+      const { next, unlocked } = applyCompletion(g, onTime, nowTs, rushMult);
       next.iconProgress = { ...next.iconProgress, [period]: (next.iconProgress[period] || 0) + 1 };
       if (unlocked.length) {
         const first = ACHIEVEMENTS.find(a => a.id === unlocked[0]);
@@ -2086,7 +2165,7 @@ export default function App() {
   useEffect(() => {
     if (isAlertWindow) return;
     if (!ipc) return;
-    const off = ipc.on('alert-action', (action: 'dismiss' | 'snooze', reminderId: number) => {
+    const off = ipc.on('alert-action', (action: 'dismiss' | 'snooze', reminderId: number, mins?: number) => {
       if (action === 'dismiss') {
         const done = remindersRef.current.find(r => r.id === reminderId);
         if (done) recordCompletion(done);
@@ -2094,7 +2173,7 @@ export default function App() {
           ? (isRecurring(r) ? { ...r, triggerAt: nextReminderTrigger(r.triggerAt, r.repeat, Date.now()) } : { ...r, dismissed: true })
           : r));
       } else if (action === 'snooze') {
-        const newTrigger = Date.now() + 5 * 60 * 1000;
+        const newTrigger = Date.now() + (mins && mins > 0 ? mins : 5) * 60 * 1000;
         setReminders(rs => rs.map(r => r.id === reminderId ? { ...r, triggerAt: newTrigger, dismissed: false } : r));
       }
       setActiveAlert(null);
@@ -2142,7 +2221,7 @@ export default function App() {
 
   // ============ ACTIONS ============
   const resetForm = () => {
-    setTitle(''); setDescription(''); setImageUrl(''); setDate(''); setTime(''); setRepeat('none');
+    setTitle(''); setDescription(''); setImageUrl(''); setDate(''); setTime(''); setRepeat('none'); setColor('');
   };
 
   const openForm = () => {
@@ -2166,10 +2245,19 @@ export default function App() {
       triggerAt,
       dismissed: false,
       repeat,
+      color: color || '',
     };
     setReminders(rs => [...rs, newR].sort((a, b) => a.triggerAt - b.triggerAt));
     setShowForm(false);
     resetForm();
+  };
+
+  // pin, duplicate, and undo-able delete
+  const togglePin = (id: number | string) => setReminders(rs => rs.map(r => (r.id === id ? { ...r, pinned: !r.pinned } : r)));
+  const duplicateReminder = (r: any) => {
+    const copy = { ...r, id: Date.now() + Math.random(), dismissed: false, pinned: false };
+    delete copy.shared; delete copy.sharedId; delete copy.withName; // a shared reminder becomes a personal copy
+    setReminders(rs => [...rs, copy].sort((a, b) => a.triggerAt - b.triggerAt));
   };
 
   const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -2211,11 +2299,11 @@ export default function App() {
       : x));
   };
 
-  const snooze = () => {
+  const snooze = (mins: number = 5) => {
     if (isAlertWindow) {
-      ipc?.send('alert-action', 'snooze', alertData.id);
+      ipc?.send('alert-action', 'snooze', alertData.id, mins);
     } else if (activeAlert) {
-      const newTrigger = Date.now() + 5 * 60 * 1000;
+      const newTrigger = Date.now() + mins * 60 * 1000;
       if (activeAlert.shared) { social.updateSharedReminder(activeAlert.sharedId, { triggerAt: newTrigger }).catch(() => {}); setActiveAlert(null); return; }
       const id = activeAlert.id;
       setReminders(rs => rs.map(r => r.id === id ? { ...r, triggerAt: newTrigger, dismissed: false } : r));
@@ -2227,9 +2315,10 @@ export default function App() {
     const sr = sharedAsReminders.find(x => x.id === id);
     if (sr) { social.deleteSharedReminder(sr.sharedId).catch(() => {}); return; }
     const r = remindersRef.current.find(x => x.id === id);
-    if (r) recordMiss(r); // deleting an overdue reminder counts as a miss
+    if (r) { recordMiss(r); setUndoReminder(r); setTimeout(() => setUndoReminder((cur: any) => (cur && cur.id === r.id ? null : cur)), 6000); }
     setReminders(rs => rs.filter(x => x.id !== id));
   };
+  const undoDelete = () => { if (undoReminder) { const r = undoReminder; setUndoReminder(null); setReminders(rs => [...rs, r].sort((a, b) => a.triggerAt - b.triggerAt)); } };
 
   const handleLogout = async () => {
     await api.logout();
@@ -2251,6 +2340,54 @@ export default function App() {
     setShowSidebar(false);
     setCloudPro(false); setPendingPro(false); setDismissRedeem(false); setCloudProfile(null);
     social.cloudSignOut().catch(() => {});
+  };
+
+  // ============ BACKUP: export / import ============
+  const backupInputRef = useRef<HTMLInputElement>(null);
+  const exportBackup = () => {
+    const payload = {
+      lullBackup: 1,
+      exportedAt: Date.now(),
+      user: user?.username || '',
+      reminders,
+      tasks,
+      settings,
+      game,
+      notes,
+    };
+    try {
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      const stamp = new Date().toISOString().slice(0, 10);
+      a.href = url;
+      a.download = `lull-backup-${stamp}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      setToast('Backup exported');
+    } catch {
+      setToast('Could not export backup');
+    }
+  };
+  const importBackup = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const data = JSON.parse(reader.result as string);
+        if (!data || !data.lullBackup) { setToast('Not a Lull backup file'); return; }
+        if (Array.isArray(data.reminders)) setReminders(data.reminders);
+        if (Array.isArray(data.tasks)) setTasks(data.tasks);
+        if (data.settings) setSettings(s => ({ ...DEFAULT_SETTINGS, ...s, ...data.settings }));
+        if (data.game) setGame(g => ({ ...g, ...data.game }));
+        if (Array.isArray(data.notes)) setNotes(data.notes);
+        setToast('Backup restored');
+      } catch {
+        setToast('Could not read that file');
+      }
+    };
+    reader.readAsText(file);
   };
 
   // ============ TASK / MACRO ACTIONS ============
@@ -2288,7 +2425,7 @@ export default function App() {
     ? Intl.DateTimeFormat().resolvedOptions().timeZone
     : settings.timezone;
   const tzLabel = (settings.autoTimezone || settings.timezone === 'auto') ? 'Local time' : activeTz.split('/').pop()?.replace(/_/g, ' ') || 'Time';
-  const fmtTime = (ts: number) => new Date(ts).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: activeTz });
+  const fmtTime = (ts: number) => new Date(ts).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: !settings.clock24h, timeZone: activeTz });
   const fmtDate = (ts: number) => new Date(ts).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: activeTz });
 
   const fmtCountdown = (ts: number) => {
@@ -2304,7 +2441,18 @@ export default function App() {
     return `in ${d}d ${h % 24}h`;
   };
 
-  const upcoming = [...reminders.filter(r => !r.dismissed), ...sharedAsReminders].sort((a, b) => a.triggerAt - b.triggerAt);
+  const upcoming = [...reminders.filter(r => !r.dismissed), ...sharedAsReminders]
+    .filter(r => {
+      const q = reminderSearch.trim().toLowerCase();
+      if (!q) return true;
+      return (r.title || '').toLowerCase().includes(q) || (r.description || '').toLowerCase().includes(q);
+    })
+    .sort((a, b) => {
+      // pinned reminders float to the top, then by soonest trigger
+      if (!!a.pinned !== !!b.pinned) return a.pinned ? -1 : 1;
+      return a.triggerAt - b.triggerAt;
+    });
+  const activeReminderCount = reminders.filter(r => !r.dismissed).length + sharedAsReminders.length;
   const ukNow = fmtTime(now);
   const themeClass = `theme-${settings.theme}`;
 
@@ -2514,12 +2662,19 @@ export default function App() {
               {alertData.description && (
                 <p className="text-ink-muted leading-relaxed mb-7 text-base">{alertData.description}</p>
               )}
-              <div className="flex gap-3" style={{ WebkitAppRegion: 'no-drag' } as any}>
-                <button onClick={snooze} className="flex-1 py-4 px-5 rounded-full border-2 border-cream-dark text-ink hover:border-terra transition-all font-medium flex items-center justify-center gap-2">
-                  <Clock size={16} strokeWidth={2}/>
-                  Wait 5 minutes
-                </button>
-                <button onClick={dismiss} className="flex-1 py-4 px-5 rounded-full bg-ink text-cream hover:bg-terra transition-colors font-medium">
+              <div style={{ WebkitAppRegion: 'no-drag' } as any}>
+                <div className="flex items-center gap-2 mb-2">
+                  <Clock size={15} strokeWidth={2} className="text-ink-muted"/>
+                  <span className="text-xs uppercase tracking-[0.18em] text-ink-muted font-medium">Snooze</span>
+                </div>
+                <div className="flex gap-2 mb-3">
+                  {[5, 15, 60].map(m => (
+                    <button key={m} onClick={() => snooze(m)} className="flex-1 py-3 px-3 rounded-full border-2 border-cream-dark text-ink hover:border-terra hover:text-terra transition-all font-medium text-sm">
+                      {m < 60 ? `${m} min` : '1 hour'}
+                    </button>
+                  ))}
+                </div>
+                <button onClick={dismiss} className="w-full py-4 px-5 rounded-full bg-ink text-cream hover:bg-terra transition-colors font-medium">
                   Dismiss
                 </button>
               </div>
@@ -2580,6 +2735,17 @@ export default function App() {
                style={{ marginTop: 'env(safe-area-inset-top)' }}>
             <Trophy size={16} className="text-terra-light" strokeWidth={2}/>
             <span className="text-sm font-medium">{toast}</span>
+          </div>
+        )}
+
+        {undoReminder && (
+          <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-ink text-cream rounded-full pl-5 pr-2 py-2 shadow-xl flex items-center gap-3 animate-slide-down"
+               style={{ marginBottom: 'env(safe-area-inset-bottom)' }}>
+            <Trash2 size={15} className="text-cream/70" strokeWidth={2}/>
+            <span className="text-sm font-medium max-w-[45vw] truncate">Deleted "{undoReminder.title}"</span>
+            <button onClick={undoDelete} className="bg-cream text-ink rounded-full px-4 py-1.5 text-sm font-medium hover:bg-terra hover:text-cream transition-colors">
+              Undo
+            </button>
           </div>
         )}
 
@@ -2708,7 +2874,7 @@ export default function App() {
 
         {/* ============ ADMIN (staff only) ============ */}
         {showAdmin && isStaff && (
-          <AdminPanel isAdminUser={isAdminUser} onClose={() => setShowAdmin(false)} />
+          <AdminPanel isAdminUser={isAdminUser} liveEvent={liveEvent} by={settings.displayName || user.username} onClose={() => setShowAdmin(false)} />
         )}
 
         {/* ============ BAN OVERLAY (blocks the cloud account) ============ */}
@@ -2816,6 +2982,27 @@ export default function App() {
             </div>
           </header>
 
+          {/* a calm thought for the day */}
+          <div className="mb-8 -mt-6 flex items-start gap-2.5 animate-fade-up" style={{ animationDelay: '0.05s' }}>
+            <Feather size={16} className="text-terra mt-0.5 shrink-0" strokeWidth={1.8}/>
+            <p className="font-display text-lg sm:text-xl italic text-ink-muted leading-snug">{dailyQuote(now)}</p>
+          </div>
+
+          {/* global admin events */}
+          {liveEvent && (liveEvent.rushMultiplier || 1) > 1 && (liveEvent.rushEndsAt || 0) > now && (
+            <div className="mb-5 flex items-center gap-3 bg-terra text-cream rounded-2xl px-5 py-3 animate-fade-up shadow-lg">
+              <Sparkles size={18} strokeWidth={2} />
+              <span className="font-medium flex-1">{liveEvent.rushMultiplier}× XP Rush — complete reminders now!</span>
+              <span className="text-sm opacity-90">ends in {Math.max(1, Math.ceil((liveEvent.rushEndsAt - now) / 60000))}m</span>
+            </div>
+          )}
+          {liveEvent && liveEvent.announce && (
+            <div className="mb-5 flex items-start gap-3 bg-card border border-cream-dark rounded-2xl px-5 py-3 animate-fade-up">
+              <Shield size={16} className="text-terra mt-0.5 shrink-0" strokeWidth={2} />
+              <span className="text-sm text-ink flex-1">{liveEvent.announce}</span>
+            </div>
+          )}
+
           <div className="mb-8 animate-fade-up" style={{ animationDelay: '0.1s' }}>
             <h2 className="font-display text-2xl sm:text-3xl text-ink-muted italic font-light">
               What do you want to remember?
@@ -2862,11 +3049,29 @@ export default function App() {
             )}
           </div>
 
+          {activeReminderCount >= 3 && (
+            <div className="relative mb-6 animate-fade-up" style={{ animationDelay: '0.25s' }}>
+              <Search size={17} strokeWidth={2} className="absolute left-4 top-1/2 -translate-y-1/2 text-ink-muted pointer-events-none"/>
+              <input
+                type="text"
+                value={reminderSearch}
+                onChange={e => setReminderSearch(e.target.value)}
+                placeholder="Search reminders…"
+                className="w-full bg-card border-2 border-cream-dark focus:border-terra rounded-full pl-11 pr-10 py-3 text-ink placeholder:text-ink-muted outline-none transition-colors"
+              />
+              {reminderSearch && (
+                <button onClick={() => setReminderSearch('')} className="absolute right-4 top-1/2 -translate-y-1/2 text-ink-muted hover:text-terra transition-colors" aria-label="Clear search">
+                  <X size={16} strokeWidth={2}/>
+                </button>
+              )}
+            </div>
+          )}
+
           {upcoming.length === 0 ? (
             <div className="bg-card border-2 border-dashed border-cream-dark rounded-3xl py-20 px-6 text-center animate-fade-up" style={{ animationDelay: '0.3s' }}>
               <Bell size={32} className="text-terra mx-auto mb-4" strokeWidth={1.4}/>
-              <p className="font-display text-2xl italic text-ink-muted">Nothing on your mind yet</p>
-              <p className="text-sm text-ink-muted mt-2">Tap "new reminder" to add one</p>
+              <p className="font-display text-2xl italic text-ink-muted">{reminderSearch.trim() ? 'No matches' : 'Nothing on your mind yet'}</p>
+              <p className="text-sm text-ink-muted mt-2">{reminderSearch.trim() ? 'Try a different search' : 'Tap "new reminder" to add one'}</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -2876,6 +3081,9 @@ export default function App() {
                   className="bg-card rounded-3xl p-6 border border-cream-dark hover:shadow-xl transition-all duration-500 animate-fade-up flex flex-col"
                   style={{ animationDelay: `${0.3 + Math.min(i, 6) * 0.05}s`, boxShadow: '0 4px 20px -8px rgba(31, 36, 33, 0.1)' }}
                 >
+                  {r.color && (
+                    <div className="h-1.5 rounded-full mb-4 -mt-1" style={{ background: r.color }}/>
+                  )}
                   {!isNative && r.imageUrl && (
                     <div className="rounded-2xl overflow-hidden mb-5 aspect-[4/3] bg-cream-dark">
                       <img src={r.imageUrl} alt="" className="w-full h-full object-cover"/>
@@ -2883,7 +3091,10 @@ export default function App() {
                   )}
 
                   <div className="flex-1">
-                    <h3 className="font-display text-2xl text-ink leading-tight mb-2 font-medium">{r.title}</h3>
+                    <h3 className="font-display text-2xl text-ink leading-tight mb-2 font-medium flex items-start gap-1.5">
+                      {r.pinned && <Pin size={15} strokeWidth={2} className="text-terra mt-1.5 shrink-0 fill-terra"/>}
+                      <span>{r.title}</span>
+                    </h3>
                     {r.description && (
                       <p className="text-ink-muted text-sm leading-relaxed mb-4">{r.description}</p>
                     )}
@@ -2918,6 +3129,26 @@ export default function App() {
                         >
                           <Sparkles size={12} strokeWidth={2}/> Done
                         </button>
+                        {!r.shared && (
+                          <button
+                            onClick={() => togglePin(r.id)}
+                            className={`transition-colors p-1 ${r.pinned ? 'text-terra' : 'text-ink-muted hover:text-terra'}`}
+                            aria-label={r.pinned ? 'Unpin' : 'Pin to top'}
+                            title={r.pinned ? 'Unpin' : 'Pin to top'}
+                          >
+                            <Pin size={14} strokeWidth={1.8} className={r.pinned ? 'fill-terra' : ''}/>
+                          </button>
+                        )}
+                        {!r.shared && (
+                          <button
+                            onClick={() => duplicateReminder(r)}
+                            className="text-ink-muted hover:text-terra transition-colors p-1"
+                            aria-label="Duplicate reminder"
+                            title="Duplicate"
+                          >
+                            <Copy size={14} strokeWidth={1.8}/>
+                          </button>
+                        )}
                         <button
                           onClick={() => deleteReminder(r.id)}
                           className="text-ink-muted hover:text-terra transition-colors p-1"
@@ -3079,6 +3310,31 @@ export default function App() {
                   </div>
                 </div>
 
+                <div>
+                  <label className="text-xs uppercase tracking-wider text-ink-muted block mb-2">Color label</label>
+                  <div className="flex items-center gap-2.5">
+                    <button
+                      type="button"
+                      onClick={() => setColor('')}
+                      className={`w-8 h-8 rounded-full border-2 flex items-center justify-center transition-all ${color === '' ? 'border-terra' : 'border-cream-dark hover:border-ink-muted'}`}
+                      title="No color"
+                      aria-label="No color"
+                    >
+                      <Ban size={14} strokeWidth={2} className="text-ink-muted"/>
+                    </button>
+                    {['#C8553D', '#E8A33D', '#5C8A5A', '#3D7EA6', '#7B5EA7', '#C86B98'].map(c => (
+                      <button
+                        key={c}
+                        type="button"
+                        onClick={() => setColor(c)}
+                        className={`w-8 h-8 rounded-full transition-all ${color === c ? 'ring-2 ring-offset-2 ring-ink scale-110' : 'hover:scale-110'}`}
+                        style={{ background: c }}
+                        aria-label={`Color ${c}`}
+                      />
+                    ))}
+                  </div>
+                </div>
+
                 {!isNative && (
                 <div>
                   <label className="text-xs uppercase tracking-wider text-ink-muted block mb-2">Image (optional)</label>
@@ -3180,6 +3436,22 @@ export default function App() {
                     <TrendingUp size={18} className="text-terra mx-auto mb-1" strokeWidth={1.8}/>
                     <div className="font-display text-2xl font-medium">{rate}%</div>
                     <div className="text-[10px] uppercase tracking-wider text-ink-muted">On-rate</div>
+                  </div>
+                </div>
+
+                {/* streak freezes */}
+                <div className="bg-card rounded-2xl border border-cream-dark p-5 mb-4 flex items-center gap-4">
+                  <div className="relative shrink-0">
+                    <Snowflake size={26} className="text-[#3D7EA6]" strokeWidth={1.8}/>
+                    <span className="absolute -top-2 -right-2 bg-[#3D7EA6] text-cream text-[11px] font-bold rounded-full w-5 h-5 flex items-center justify-center">{game.freezes || 0}</span>
+                  </div>
+                  <div className="flex-1">
+                    <div className="font-display text-lg font-medium leading-tight">Streak freezes</div>
+                    <p className="text-xs text-ink-muted mt-0.5">
+                      {(game.freezes || 0) > 0
+                        ? `Miss a day and a freeze keeps your streak alive. You have ${game.freezes} in the bank.`
+                        : 'Earn one every 7-day streak (up to 3). They save your streak if you miss a single day.'}
+                    </p>
                   </div>
                 </div>
 
@@ -3476,6 +3748,26 @@ export default function App() {
                           {['auto','Pacific/Auckland','Australia/Sydney','Asia/Tokyo','Asia/Singapore','Asia/Kolkata','Asia/Dubai','Europe/Moscow','Europe/Berlin','Europe/Paris','Europe/London','Atlantic/Reykjavik','America/Sao_Paulo','America/New_York','America/Chicago','America/Denver','America/Los_Angeles','Pacific/Honolulu'].map(tz => (<option key={tz} value={tz}>{tz === 'auto' ? 'Automatic (this device)' : tz.replace(/_/g, ' ')}</option>))}
                         </select>
                         <p className="text-xs text-ink-muted mt-2">Currently {activeTz.replace(/_/g, ' ')} · {ukNow}</p>
+                      </div>
+
+                      <div>
+                        <label className="text-xs uppercase tracking-wider text-ink-muted block mb-2">Clock format</label>
+                        <Segmented
+                          value={settings.clock24h ? '24' : '12'}
+                          onChange={v => setSettings(s => ({ ...s, clock24h: v === '24' }))}
+                          options={[{ value: '24', label: '24-hour' }, { value: '12', label: '12-hour' }]}
+                        />
+                        <p className="text-xs text-ink-muted mt-2">Times show as {settings.clock24h ? '17:30' : '5:30 PM'}.</p>
+                      </div>
+
+                      <div className="pt-2 border-t border-cream-dark">
+                        <label className="text-xs uppercase tracking-wider text-ink-muted block mb-2">Backup</label>
+                        <p className="text-xs text-ink-muted mb-3">Save your reminders, tasks, notes and progress to a file — or restore them on another device.</p>
+                        <div className="grid grid-cols-2 gap-3">
+                          <button onClick={exportBackup} className="flex items-center justify-center gap-2 py-3.5 rounded-2xl border-2 border-cream-dark text-ink font-medium hover:border-terra hover:text-terra transition-colors"><Download size={16} strokeWidth={2}/> Export</button>
+                          <button onClick={() => backupInputRef.current?.click()} className="flex items-center justify-center gap-2 py-3.5 rounded-2xl border-2 border-cream-dark text-ink font-medium hover:border-terra hover:text-terra transition-colors"><Upload size={16} strokeWidth={2}/> Import</button>
+                        </div>
+                        <input ref={backupInputRef} type="file" accept="application/json,.json" onChange={e => { const f = e.target.files?.[0]; if (f) importBackup(f); e.target.value = ''; }} className="hidden"/>
                       </div>
                     </div>
                   )}
