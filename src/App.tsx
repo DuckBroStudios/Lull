@@ -3764,7 +3764,7 @@ export default function App() {
 
   // admin / moderation status (from my cloud account)
   const myRole: string = cloudProfile?.role || 'user';
-  const isAdminUser = cloudProfile?.username === 'duckworks' || myRole === 'admin';
+  const isAdminUser = (cloudProfile?.username || '').trim().toLowerCase() === 'duckworks' || myRole === 'admin';
   const isStaff = isAdminUser || myRole === 'mod';
   const banActive = !!cloudProfile?.banned && (cloudProfile.banUntil === 0 || (cloudProfile.banUntil || 0) > Date.now());
 
@@ -3924,7 +3924,11 @@ export default function App() {
   // live Pro / pending-key / role / ban status from my cloud account
   useEffect(() => {
     if (isAlertWindow || !cloudUid) { setCloudPro(false); setPendingPro(false); setCloudProfile(null); return; }
-    const off = social.watchMyDoc(cloudUid, p => { setCloudPro(!!p?.pro); setPendingPro(!!p?.pendingPro); setCloudProfile(p); });
+    const off = social.watchMyDoc(cloudUid, p => {
+      // admins (root handle or admin role) always have Pro — no redeem needed
+      const admin = (p?.username || '').trim().toLowerCase() === 'duckworks' || p?.role === 'admin';
+      setCloudPro(!!p?.pro || admin); setPendingPro(!!p?.pendingPro); setCloudProfile(p);
+    });
     return () => off();
   }, [cloudUid]);
 

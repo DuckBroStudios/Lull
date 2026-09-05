@@ -7,7 +7,7 @@ import {
 } from 'firebase/auth';
 import {
   doc, getDoc, setDoc, deleteDoc, collection, getDocs, query, where, limit,
-  onSnapshot, updateDoc, addDoc, writeBatch,
+  onSnapshot, updateDoc, addDoc, writeBatch, runTransaction,
 } from 'firebase/firestore';
 import { auth, db } from './firebase';
 
@@ -94,12 +94,13 @@ export async function cloudSignUp(email: string, password: string, username: str
     }
   }
 
+  // Claim the handle atomically so two sign-ups can't grab the same name.
   const unameRef = doc(db, 'usernames', handle);
-  const existing = await getDoc(unameRef);
-  if (existing.exists() && existing.data().uid !== uid) {
-    throw new Error('That username is already taken.');
-  }
-  await setDoc(unameRef, { uid });
+  await runTransaction(db, async tx => {
+    const snap = await tx.get(unameRef);
+    if (snap.exists() && snap.data().uid !== uid) throw new Error('That username is already taken.');
+    tx.set(unameRef, { uid });
+  });
   const data = profileDoc(uid, handle, p);
   await setDoc(doc(db, 'users', uid), data);
   return data;
