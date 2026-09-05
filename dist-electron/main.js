@@ -36,7 +36,8 @@ const _ = {
   codeTabSize: 2,
   codeWrap: !1,
   codeLivePreview: !0,
-  codeLineNumbers: !1
+  codeLineNumbers: !1,
+  clock24h: !0
 };
 function V() {
   return l.join(m.getPath("userData"), "lull-data.json");
@@ -391,8 +392,8 @@ c.on("show-alert", (e, t) => {
 c.on("close-alert", () => {
   i && (i.close(), i = null);
 });
-c.on("alert-action", (e, t, n) => {
-  s == null || s.webContents.send("alert-action", t, n), i && (i.close(), i = null);
+c.on("alert-action", (e, t, n, r) => {
+  s == null || s.webContents.send("alert-action", t, n, r), i && (i.close(), i = null);
 });
 function ve() {
   const e = l.join(process.env.VITE_PUBLIC, "icon.png"), t = N.createFromPath(e);

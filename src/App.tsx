@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Plus, X, Image as ImageIcon, Trash2, AlarmClock, Bell, Clock, Settings, LogOut, User, Moon, Sun, Volume2, VolumeX, Eye, EyeOff, Zap, Play, Square, MousePointerClick, Keyboard, Type, Move, Pencil, ChevronLeft, AlertTriangle, Music, Pause, Lock, Flame, Trophy, Target, TrendingUp, Gift, BarChart3, Sparkles, Home, Palette, Upload, ZoomIn, ZoomOut, Users, Search, UserPlus, Check, Code2, FilePlus, FolderPlus, BookOpen, Shield, Ban, Pin, Copy, Feather, Download, Snowflake } from 'lucide-react';
+import { Plus, X, Image as ImageIcon, Trash2, AlarmClock, Bell, Clock, Settings, LogOut, User, Moon, Sun, Volume2, VolumeX, Eye, EyeOff, Zap, Play, Square, MousePointerClick, Keyboard, Type, Move, Pencil, ChevronLeft, AlertTriangle, Music, Pause, Lock, Flame, Trophy, Target, TrendingUp, Gift, BarChart3, Sparkles, Home, Palette, Upload, ZoomIn, ZoomOut, Users, Search, UserPlus, Check, Code2, FilePlus, FolderPlus, BookOpen, Shield, Ban, Pin, Copy, Feather, Download, Snowflake, FileText, FolderOpen, Film, Save, Circle, Minus, Layers, SlidersHorizontal, Wand2, Crop, Eraser, Scissors, Sticker } from 'lucide-react';
 import { isNative, requestReminderPermission, syncReminderNotifications } from './notifications';
 import * as social from './social';
 import type { CloudProfile, Friend, FriendRequest } from './social';
@@ -1283,6 +1283,26 @@ const CODE_REF: { key: 'html' | 'css' | 'js'; label: string; entries: RefEntry[]
     { name: '<br>', syntax: 'line one<br>line two', desc: 'A line break.', info: 'Use sparingly — prefer separate paragraphs or CSS spacing.' },
     { name: '<strong> / <em>', syntax: '<strong>bold</strong> <em>italic</em>', desc: 'Bold (strong) and italic (em) emphasis.', info: 'They also carry meaning for screen readers.' },
     { name: '<nav> / <header> / <footer>', syntax: '<header> … </header>', desc: 'Landmark sections: navigation, top, and bottom of a page.', info: 'Semantic tags that help structure and accessibility.' },
+    { name: '<!-- comment -->', syntax: '<!-- note to self -->', desc: 'A comment the browser ignores.', info: 'For leaving notes in your code; never shown on the page.' },
+    { name: '<meta charset>', syntax: '<meta charset="utf-8">', desc: 'Sets the character encoding.', info: 'utf-8 supports every language and emoji. Put it first in <head>.' },
+    { name: '<meta viewport>', syntax: '<meta name="viewport" content="width=device-width, initial-scale=1">', desc: 'Makes the page fit phone screens.', info: 'Essential for mobile-friendly layouts.' },
+    { name: '<title>', syntax: '<title>My page</title>', desc: 'The page name shown in the browser tab.', info: 'Lives inside the <head>.' },
+    { name: 'class / id', syntax: '<div class="card" id="main">', desc: 'Labels for styling and scripting.', info: 'A class can repeat; an id must be unique on the page.' },
+    { name: 'data-* attribute', syntax: '<li data-value="3">', desc: 'Stores custom data on an element.', info: 'Read it in JS with el.dataset.value.' },
+    { name: '<table>', syntax: '<table><tr><td>cell</td></tr></table>', desc: 'A grid of rows and cells.', info: 'tr is a row, td a cell, th a header cell.' },
+    { name: '<select> / <option>', syntax: '<select><option>A</option></select>', desc: 'A dropdown menu.', info: 'Each choice is an <option>.' },
+    { name: '<textarea>', syntax: '<textarea rows="4"></textarea>', desc: 'A multi-line text box.', info: 'For longer input than <input>.' },
+    { name: '<video>', syntax: '<video src="clip.mp4" controls></video>', desc: 'Embeds a video.', info: 'Add controls to show play and pause.' },
+    { name: '<audio>', syntax: '<audio src="song.mp3" controls></audio>', desc: 'Embeds a sound clip.', info: 'controls shows a small player.' },
+    { name: '<iframe>', syntax: '<iframe src="https://…"></iframe>', desc: 'Embeds another page inside this one.', info: 'Used for maps, videos and widgets.' },
+    { name: '<section> / <article>', syntax: '<section> … </section>', desc: 'Meaningful content blocks.', info: 'article is self-contained; section is a themed group.' },
+    { name: '<main> / <aside>', syntax: '<main> … </main>', desc: 'Primary content and side content.', info: 'One <main> per page; <aside> for sidebars.' },
+    { name: '<figure> / <figcaption>', syntax: '<figure><img><figcaption>…</figcaption></figure>', desc: 'An image with a caption.', info: 'Keeps a picture and its caption together.' },
+    { name: '<canvas>', syntax: '<canvas id="c"></canvas>', desc: 'A drawing surface for graphics.', info: 'Draw on it from JavaScript with getContext.' },
+    { name: '<details> / <summary>', syntax: '<details><summary>More</summary>…</details>', desc: 'A built-in expandable section.', info: 'Click the summary to open or close, no JS needed.' },
+    { name: '<pre> / <code>', syntax: '<code>x = 1</code>', desc: 'Code and preformatted text.', info: 'pre keeps your spacing; code shows inline code.' },
+    { name: '<hr>', syntax: '<hr>', desc: 'A horizontal divider line.', info: 'Separates sections. No closing tag.' },
+    { name: 'HTML entities', syntax: '&amp;  &lt;  &copy;', desc: 'Codes for special characters.', info: '&lt; makes <, &amp; makes &, &copy; makes the © symbol.' },
   ] },
   { key: 'css', label: 'CSS', entries: [
     { name: 'color', syntax: 'color: #C8553D;', desc: 'Sets the text color.', info: 'Accepts hex (#fff), names (red), rgb() and hsl().' },
@@ -1307,6 +1327,34 @@ const CODE_REF: { key: 'html' | 'css' | 'js'; label: string; entries: RefEntry[]
     { name: 'transform', syntax: 'transform: scale(1.1);', desc: 'Moves, rotates, or scales an element.', info: 'translate(), rotate(), scale(). Doesn\'t affect layout.' },
     { name: 'cursor', syntax: 'cursor: pointer;', desc: 'The mouse cursor shown when hovering.', info: 'pointer signals something is clickable.' },
     { name: 'grid', syntax: 'display: grid; grid-template-columns: 1fr 1fr;', desc: 'A two-dimensional row/column layout.', info: 'fr units split available space; gap adds spacing.' },
+    { name: 'box-sizing', syntax: 'box-sizing: border-box;', desc: 'Include padding and border in the width.', info: 'Set it on * to make sizing predictable.' },
+    { name: 'line-height', syntax: 'line-height: 1.5;', desc: 'Vertical spacing between lines of text.', info: '1.4 to 1.6 reads nicely.' },
+    { name: 'letter-spacing', syntax: 'letter-spacing: 0.05em;', desc: 'Space between letters.', info: 'Great for uppercase headings.' },
+    { name: 'font-weight', syntax: 'font-weight: 700;', desc: 'How bold the text is.', info: '400 is normal, 700 is bold.' },
+    { name: 'text-decoration', syntax: 'text-decoration: underline;', desc: 'Underline or strike-through text.', info: 'none removes link underlines.' },
+    { name: 'text-transform', syntax: 'text-transform: uppercase;', desc: 'Changes letter case.', info: 'uppercase, lowercase, capitalize.' },
+    { name: 'background-image', syntax: 'background-image: url(pic.jpg);', desc: 'Puts an image behind an element.', info: 'Pair with background-size: cover.' },
+    { name: 'background-size', syntax: 'background-size: cover;', desc: 'How a background image fills its box.', info: 'cover fills the box; contain fits inside it.' },
+    { name: 'object-fit', syntax: 'object-fit: cover;', desc: 'How an image fills its box.', info: 'cover crops; contain letterboxes.' },
+    { name: 'overflow', syntax: 'overflow: hidden;', desc: 'What happens to content that spills out.', info: 'hidden clips it; auto or scroll add scrollbars.' },
+    { name: 'z-index', syntax: 'z-index: 10;', desc: 'Stacking order of positioned elements.', info: 'Higher sits on top. Needs a position set.' },
+    { name: 'flex-direction', syntax: 'flex-direction: column;', desc: 'Row or column for a flex layout.', info: 'row is the default; column stacks vertically.' },
+    { name: 'flex-wrap', syntax: 'flex-wrap: wrap;', desc: 'Let flex items wrap onto new lines.', info: 'Keeps items from overflowing on small screens.' },
+    { name: 'grid-template-columns', syntax: 'grid-template-columns: repeat(3, 1fr);', desc: 'Defines the grid columns.', info: 'repeat(3, 1fr) makes three equal columns.' },
+    { name: ':hover', syntax: 'a:hover { color: red; }', desc: 'Styles an element on mouse-over.', info: 'Also try :focus and :active for other states.' },
+    { name: ':nth-child', syntax: 'li:nth-child(2) { … }', desc: 'Targets elements by position.', info: 'odd and even are handy for striped rows.' },
+    { name: '::before / ::after', syntax: '.x::before { content: "★"; }', desc: 'Adds decorative content with CSS.', info: 'Needs a content property to appear.' },
+    { name: '@media (query)', syntax: '@media (max-width: 600px) { … }', desc: 'Different styles at different screen sizes.', info: 'The key to responsive design.' },
+    { name: 'CSS variables', syntax: ':root { --brand: #C8553D; }  color: var(--brand);', desc: 'Reusable custom values.', info: 'Define once, use everywhere with var().' },
+    { name: 'calc()', syntax: 'width: calc(100% - 40px);', desc: 'Do math inside a value.', info: 'Mix units freely, like percent minus pixels.' },
+    { name: 'clamp()', syntax: 'font-size: clamp(1rem, 4vw, 2rem);', desc: 'A value that flexes between a min and max.', info: 'Great for fluid, responsive text.' },
+    { name: 'aspect-ratio', syntax: 'aspect-ratio: 16 / 9;', desc: 'Keeps a fixed width-to-height ratio.', info: 'Perfect for video and image boxes.' },
+    { name: 'animation / @keyframes', syntax: '@keyframes spin { to { transform: rotate(360deg); } }', desc: 'Multi-step animations.', info: 'Apply with animation: spin 1s linear infinite;' },
+    { name: 'filter', syntax: 'filter: blur(4px) brightness(1.2);', desc: 'Visual effects on an element.', info: 'blur, brightness, grayscale, drop-shadow.' },
+    { name: 'backdrop-filter', syntax: 'backdrop-filter: blur(8px);', desc: 'Blurs whatever sits behind an element.', info: 'The frosted-glass look.' },
+    { name: 'list-style', syntax: 'list-style: none;', desc: 'Bullet or number style for lists.', info: 'none removes bullets, common for nav menus.' },
+    { name: 'pointer-events', syntax: 'pointer-events: none;', desc: 'Whether an element receives clicks.', info: 'none lets clicks pass through to what is behind.' },
+    { name: 'outline', syntax: 'outline: 2px solid blue;', desc: 'A line outside the border.', info: 'Do not remove focus outlines without a replacement.' },
   ] },
   { key: 'js', label: 'JavaScript', entries: [
     { name: 'let / const', syntax: 'let x = 1; const y = 2;', desc: 'Declare a variable. const can\'t be reassigned.', info: 'Prefer const; use let only when the value changes.' },
@@ -1331,6 +1379,38 @@ const CODE_REF: { key: 'html' | 'css' | 'js'; label: string; entries: RefEntry[]
     { name: '=== (equality)', syntax: 'if (a === b)', desc: 'Checks if two values are exactly equal.', info: 'Prefer === over == (which does loose type conversion).' },
     { name: 'fetch', syntax: 'fetch(url).then(r => r.json())', desc: 'Requests data from the internet.', info: 'Returns a Promise; often used with async/await.' },
     { name: 'Math.random', syntax: 'Math.random()', desc: 'A random number from 0 up to (not including) 1.', info: 'Math.floor(Math.random()*6) gives 0–5.' },
+    { name: 'else if', syntax: 'if (a) {…} else if (b) {…}', desc: 'Check more conditions in a row.', info: 'Falls to else if none of them match.' },
+    { name: 'while loop', syntax: 'while (x < 5) { x++; }', desc: 'Repeats while a condition stays true.', info: 'Make sure it can end, or it loops forever.' },
+    { name: 'switch', syntax: 'switch (v) { case 1: …; break; }', desc: 'Pick a branch by value.', info: 'Remember break, and add a default case.' },
+    { name: 'ternary ? :', syntax: 'const s = n > 0 ? "pos" : "neg";', desc: 'A one-line if/else that returns a value.', info: 'condition ? ifTrue : ifFalse.' },
+    { name: 'operators', syntax: '+   -   *   /   %', desc: 'Math operators.', info: '% is the remainder; ** raises to a power.' },
+    { name: 'comparison', syntax: 'a < b,  a >= b,  a !== b', desc: 'Compare two values.', info: 'Each returns true or false.' },
+    { name: 'logical && || !', syntax: 'if (a && !b) …', desc: 'Combine or flip conditions.', info: '&& is and, || is or, ! is not.' },
+    { name: 'array.reduce', syntax: 'nums.reduce((sum, n) => sum + n, 0)', desc: 'Boils an array down to one value.', info: 'Great for totals; 0 is the starting value.' },
+    { name: 'array.find', syntax: 'users.find(u => u.id === 3)', desc: 'Returns the first matching item.', info: 'Gives undefined if nothing matches.' },
+    { name: 'array.includes', syntax: '[1,2,3].includes(2)', desc: 'Checks if an array holds a value.', info: 'Returns true or false.' },
+    { name: 'array.sort', syntax: 'nums.sort((a, b) => a - b)', desc: 'Sorts an array.', info: 'Give a compare function for numbers; it sorts in place.' },
+    { name: 'array.slice', syntax: 'arr.slice(0, 2)', desc: 'Copies part of an array.', info: 'Does not change the original.' },
+    { name: 'array.join', syntax: '["a","b"].join(", ")', desc: 'Turns an array into a string.', info: 'The argument goes between the items.' },
+    { name: 'string methods', syntax: '"Hi".toUpperCase()', desc: 'Handy text helpers.', info: '.trim(), .includes(), .split(), .replace(), .slice().' },
+    { name: 'objects', syntax: 'const user = { name: "Sam", age: 9 };', desc: 'Groups related values by key.', info: 'Read them with user.name or user["name"].' },
+    { name: 'Object.keys / values', syntax: 'Object.keys(obj)', desc: 'Lists the keys or values of an object.', info: 'Object.entries gives [key, value] pairs.' },
+    { name: 'JSON.stringify / parse', syntax: 'JSON.stringify(obj)', desc: 'Convert objects to text and back.', info: 'stringify to save, parse to read it back.' },
+    { name: 'try / catch', syntax: 'try { … } catch (e) { … }', desc: 'Handle errors without crashing.', info: 'Code that might fail goes in try.' },
+    { name: 'async / await', syntax: 'const data = await fetch(url);', desc: 'Wait for slow tasks cleanly.', info: 'await only works inside an async function.' },
+    { name: 'Promise .then', syntax: 'fetch(url).then(r => r.json())', desc: 'Run code when an async task finishes.', info: 'Chain .catch() to handle errors.' },
+    { name: 'parseInt / Number', syntax: 'Number("42")', desc: 'Turn text into a number.', info: 'parseInt reads whole numbers from text.' },
+    { name: 'typeof', syntax: 'typeof x', desc: 'Tells you what kind of value something is.', info: 'Returns "string", "number", "boolean", "object".' },
+    { name: 'Math helpers', syntax: 'Math.round(2.6)', desc: 'Rounding and more.', info: 'floor, ceil, round, max, min, abs.' },
+    { name: 'Date', syntax: 'new Date();  Date.now()', desc: 'Work with dates and times.', info: 'Date.now() is milliseconds since 1970.' },
+    { name: 'spread ...', syntax: 'const b = [...a, 4];', desc: 'Copy or expand arrays and objects.', info: '{ ...obj, x: 1 } copies then overrides x.' },
+    { name: 'destructuring', syntax: 'const { name } = user;', desc: 'Pull values out by name.', info: 'Works on arrays too: const [a, b] = arr.' },
+    { name: 'optional chaining ?.', syntax: 'user?.address?.city', desc: 'Safely read maybe-missing values.', info: 'Returns undefined instead of throwing an error.' },
+    { name: 'nullish ??', syntax: 'const n = x ?? 0;', desc: 'Fallback when a value is null or undefined.', info: 'Unlike ||, it keeps 0 and empty strings.' },
+    { name: 'createElement', syntax: 'document.createElement("div")', desc: 'Makes a new element in JS.', info: 'Add it to the page with parent.appendChild(el).' },
+    { name: 'style / setAttribute', syntax: 'el.style.color = "red"', desc: 'Change styles and attributes.', info: 'el.setAttribute("href", url) sets attributes.' },
+    { name: 'event object', syntax: 'btn.addEventListener("click", e => …)', desc: 'Details about what happened.', info: 'e.target is the element; e.preventDefault() stops the default.' },
+    { name: 'localStorage', syntax: 'localStorage.setItem("k", "v")', desc: 'Saves data in the browser.', info: 'getItem reads it back; it survives refreshes.' },
   ] },
 ];
 
@@ -1338,9 +1418,46 @@ function LogbookPanel({ theme, onClose }: { theme: string; onClose: () => void }
   const [langKey, setLangKey] = useState<'html' | 'css' | 'js'>('html');
   const [q, setQ] = useState('');
   const [sel, setSel] = useState<RefEntry | null>(null);
+  const [selCustom, setSelCustom] = useState(false);
+  const [adding, setAdding] = useState(false);
+  const [form, setForm] = useState({ name: '', syntax: '', desc: '', info: '' });
+  const [notes, setNotes] = useState<Record<string, string>>(() => { try { return JSON.parse(localStorage.getItem('lull-logbook-notes') || '{}'); } catch { return {}; } });
+  const [custom, setCustom] = useState<Record<string, RefEntry[]>>(() => { try { return JSON.parse(localStorage.getItem('lull-logbook-custom') || '{}'); } catch { return {}; } });
+
   const lang = CODE_REF.find(l => l.key === langKey) || CODE_REF[0];
-  const entries = lang.entries.filter(e => e.name.toLowerCase().includes(q.trim().toLowerCase()) || e.desc.toLowerCase().includes(q.trim().toLowerCase()));
   const codeBg = theme === 'dark' ? '#17150F' : '#F3EBDD';
+  const ql = q.trim().toLowerCase();
+  const match = (e: RefEntry) => !ql || e.name.toLowerCase().includes(ql) || e.desc.toLowerCase().includes(ql);
+  const builtins = lang.entries.filter(match);
+  const customList = (custom[langKey] || []).filter(match);
+  const noteKey = (name: string) => `${langKey}:${name}`;
+
+  const persistNotes = (n: Record<string, string>) => { try { localStorage.setItem('lull-logbook-notes', JSON.stringify(n)); } catch { /* full */ } };
+  const setNote = (name: string, val: string) => setNotes(n => { const next = { ...n }; if (val.trim()) next[noteKey(name)] = val; else delete next[noteKey(name)]; persistNotes(next); return next; });
+  const persistCustom = (c: Record<string, RefEntry[]>) => { try { localStorage.setItem('lull-logbook-custom', JSON.stringify(c)); } catch { /* full */ } };
+  const addEntry = () => {
+    if (!form.name.trim()) return;
+    const entry: RefEntry = { name: form.name.trim(), syntax: form.syntax.trim(), desc: form.desc.trim(), info: form.info.trim() };
+    setCustom(c => { const next = { ...c, [langKey]: [...(c[langKey] || []), entry] }; persistCustom(next); return next; });
+    setForm({ name: '', syntax: '', desc: '', info: '' }); setAdding(false); setSel(entry); setSelCustom(true);
+  };
+  const delEntry = (name: string) => {
+    setCustom(c => { const next = { ...c, [langKey]: (c[langKey] || []).filter(e => e.name !== name) }; persistCustom(next); return next; });
+    setNotes(n => { const next = { ...n }; delete next[noteKey(name)]; persistNotes(next); return next; });
+    setSel(null); setSelCustom(false);
+  };
+  const openEntry = (e: RefEntry, isCustom: boolean) => { setSel(e); setSelCustom(isCustom); setAdding(false); };
+
+  const Row = ({ e, isCustom }: { e: RefEntry; isCustom: boolean }) => (
+    <button onClick={() => openEntry(e, isCustom)} className={`w-full text-left rounded-xl px-3 py-2 transition-colors ${sel?.name === e.name && selCustom === isCustom ? 'bg-terra-light' : 'hover:bg-card'}`}>
+      <div className="flex items-center gap-1.5">
+        <span className="font-medium text-ink text-sm truncate" style={{ fontFamily: 'ui-monospace, monospace' }}>{e.name}</span>
+        {isCustom && <span className="text-[9px] uppercase tracking-wider bg-terra text-cream rounded-full px-1.5 py-0.5">yours</span>}
+        {notes[noteKey(e.name)] && <Feather size={11} className="text-terra shrink-0" />}
+      </div>
+      <div className="text-xs text-ink-muted truncate">{e.desc || '—'}</div>
+    </button>
+  );
 
   return (
     <div className="fixed inset-0 z-40 bg-cream animate-fade-in flex flex-col" style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
@@ -1349,7 +1466,7 @@ function LogbookPanel({ theme, onClose }: { theme: string; onClose: () => void }
         <h2 className="font-display text-lg text-ink font-medium">Logbook</h2>
         <div className="flex bg-card border border-cream-dark rounded-lg overflow-hidden text-xs ml-2">
           {CODE_REF.map(l => (
-            <button key={l.key} onClick={() => { setLangKey(l.key); setSel(null); }} className={`px-3 py-1.5 ${langKey === l.key ? 'bg-terra text-cream' : 'text-ink-muted hover:text-ink'}`}>{l.label}</button>
+            <button key={l.key} onClick={() => { setLangKey(l.key); setSel(null); setAdding(false); }} className={`px-3 py-1.5 ${langKey === l.key ? 'bg-terra text-cream' : 'text-ink-muted hover:text-ink'}`}>{l.label}</button>
           ))}
         </div>
         <div className="flex-1" />
@@ -1358,42 +1475,1842 @@ function LogbookPanel({ theme, onClose }: { theme: string; onClose: () => void }
 
       <div className="flex-1 flex min-h-0">
         {/* index list */}
-        <div className={`${sel ? 'hidden' : 'flex'} sm:flex flex-col w-full sm:w-72 shrink-0 sm:border-r border-cream-dark min-h-0`}>
-          <div className="p-3 border-b border-cream-dark shrink-0">
-            <input value={q} onChange={e => setQ(e.target.value)} placeholder={`Search ${lang.label}…`} className="w-full bg-card border border-cream-dark rounded-xl px-3 py-2 text-sm text-ink focus:outline-none focus:border-terra" />
+        <div className={`${sel || adding ? 'hidden' : 'flex'} sm:flex flex-col w-full sm:w-72 shrink-0 sm:border-r border-cream-dark min-h-0`}>
+          <div className="p-3 border-b border-cream-dark shrink-0 flex items-center gap-2">
+            <input value={q} onChange={e => setQ(e.target.value)} placeholder={`Search ${lang.label}…`} className="flex-1 bg-card border border-cream-dark rounded-xl px-3 py-2 text-sm text-ink focus:outline-none focus:border-terra" />
+            <button onClick={() => { setAdding(true); setSel(null); }} title="Add your own entry" className="shrink-0 w-9 h-9 rounded-xl bg-ink text-cream flex items-center justify-center hover:bg-terra transition-colors"><Plus size={16} /></button>
           </div>
           <div className="flex-1 overflow-y-auto p-2 space-y-1">
-            {entries.map(e => (
-              <button key={e.name} onClick={() => setSel(e)} className={`w-full text-left rounded-xl px-3 py-2 transition-colors ${sel?.name === e.name ? 'bg-terra-light' : 'hover:bg-card'}`}>
-                <div className="font-medium text-ink text-sm" style={{ fontFamily: 'ui-monospace, monospace' }}>{e.name}</div>
-                <div className="text-xs text-ink-muted truncate">{e.desc}</div>
-              </button>
-            ))}
-            {entries.length === 0 && <p className="text-sm text-ink-muted p-3">Nothing matches "{q}".</p>}
+            {customList.length > 0 && <div className="text-[10px] uppercase tracking-wider text-ink-muted px-3 pt-2 pb-1">Your entries</div>}
+            {customList.map(e => <Row key={'c-' + e.name} e={e} isCustom />)}
+            {customList.length > 0 && <div className="text-[10px] uppercase tracking-wider text-ink-muted px-3 pt-3 pb-1">{lang.label} reference</div>}
+            {builtins.map(e => <Row key={e.name} e={e} isCustom={false} />)}
+            {builtins.length === 0 && customList.length === 0 && <p className="text-sm text-ink-muted p-3">Nothing matches "{q}".</p>}
           </div>
         </div>
 
-        {/* detail */}
-        <div className={`${sel ? 'flex' : 'hidden'} sm:flex flex-col flex-1 min-w-0 overflow-y-auto`}>
-          {sel ? (
-            <div className="p-5 sm:p-8 max-w-2xl">
+        {/* detail / add-form */}
+        <div className={`${sel || adding ? 'flex' : 'hidden'} sm:flex flex-col flex-1 min-w-0 overflow-y-auto`}>
+          {adding ? (
+            <div className="p-5 sm:p-8 max-w-2xl w-full">
+              <button onClick={() => setAdding(false)} className="sm:hidden flex items-center gap-1 text-sm text-terra mb-4"><ChevronLeft size={16} /> Back</button>
+              <h3 className="font-display text-2xl text-ink font-medium mb-4">New {lang.label} entry</h3>
+              <div className="space-y-3">
+                {([['name', 'Name (e.g. <marquee> or Array.flat)'], ['syntax', 'Format / example'], ['desc', 'What it does'], ['info', 'Extra info']] as const).map(([k, ph]) => (
+                  k === 'name' || k === 'syntax'
+                    ? <input key={k} value={(form as any)[k]} onChange={e => setForm(f => ({ ...f, [k]: e.target.value }))} placeholder={ph} className="w-full bg-card border border-cream-dark rounded-xl px-3 py-2.5 text-sm text-ink focus:outline-none focus:border-terra" style={k === 'syntax' ? { fontFamily: 'ui-monospace, monospace' } : undefined} />
+                    : <textarea key={k} value={(form as any)[k]} onChange={e => setForm(f => ({ ...f, [k]: e.target.value }))} placeholder={ph} rows={2} className="w-full bg-card border border-cream-dark rounded-xl px-3 py-2.5 text-sm text-ink focus:outline-none focus:border-terra resize-none" />
+                ))}
+              </div>
+              <div className="flex gap-2 mt-5">
+                <button onClick={addEntry} disabled={!form.name.trim()} className="flex-1 bg-ink text-cream rounded-full py-3 font-medium hover:bg-terra transition-colors disabled:opacity-40">Save entry</button>
+                <button onClick={() => setAdding(false)} className="px-5 rounded-full border border-cream-dark text-ink hover:border-terra transition-colors">Cancel</button>
+              </div>
+            </div>
+          ) : sel ? (
+            <div className="p-5 sm:p-8 max-w-2xl w-full">
               <button onClick={() => setSel(null)} className="sm:hidden flex items-center gap-1 text-sm text-terra mb-4"><ChevronLeft size={16} /> Back</button>
-              <h3 className="text-2xl text-ink font-semibold mb-1" style={{ fontFamily: 'ui-monospace, monospace' }}>{sel.name}</h3>
-              <span className="inline-block text-[10px] uppercase tracking-wider bg-terra-light text-terra-dark rounded-full px-2.5 py-1 mb-5">{lang.label}</span>
-              <div className="text-[11px] uppercase tracking-wider text-ink-muted mb-1">Format</div>
-              <pre className="rounded-xl p-3 mb-5 text-sm overflow-x-auto text-ink" style={{ background: codeBg, fontFamily: 'ui-monospace, monospace' }}>{sel.syntax}</pre>
-              <div className="text-[11px] uppercase tracking-wider text-ink-muted mb-1">What it does</div>
-              <p className="text-ink mb-5 leading-relaxed">{sel.desc}</p>
-              <div className="text-[11px] uppercase tracking-wider text-ink-muted mb-1">Extra info</div>
-              <p className="text-ink-muted leading-relaxed">{sel.info}</p>
+              <div className="flex items-start justify-between gap-3">
+                <h3 className="text-2xl text-ink font-semibold mb-1 break-words" style={{ fontFamily: 'ui-monospace, monospace' }}>{sel.name}</h3>
+                {selCustom && <button onClick={() => delEntry(sel.name)} title="Delete this entry" className="shrink-0 p-1.5 rounded-lg text-ink-muted hover:text-terra hover:bg-card"><Trash2 size={16} /></button>}
+              </div>
+              <span className="inline-block text-[10px] uppercase tracking-wider bg-terra-light text-terra-dark rounded-full px-2.5 py-1 mb-5">{selCustom ? 'Your entry' : lang.label}</span>
+              {sel.syntax && (<><div className="text-[11px] uppercase tracking-wider text-ink-muted mb-1">Format</div>
+              <pre className="rounded-xl p-3 mb-5 text-sm overflow-x-auto text-ink" style={{ background: codeBg, fontFamily: 'ui-monospace, monospace' }}>{sel.syntax}</pre></>)}
+              {sel.desc && (<><div className="text-[11px] uppercase tracking-wider text-ink-muted mb-1">What it does</div>
+              <p className="text-ink mb-5 leading-relaxed">{sel.desc}</p></>)}
+              {sel.info && (<><div className="text-[11px] uppercase tracking-wider text-ink-muted mb-1">Extra info</div>
+              <p className="text-ink-muted leading-relaxed mb-6">{sel.info}</p></>)}
+              <div className="text-[11px] uppercase tracking-wider text-ink-muted mb-1 flex items-center gap-1.5"><Feather size={12} className="text-terra" /> Your notes</div>
+              <textarea value={notes[noteKey(sel.name)] || ''} onChange={e => setNote(sel.name, e.target.value)} placeholder="Add your own notes, examples or reminders — saved on this device." rows={4} className="w-full bg-card border border-cream-dark rounded-xl px-3 py-2.5 text-sm text-ink focus:outline-none focus:border-terra resize-y" />
             </div>
           ) : (
             <div className="flex-1 flex items-center justify-center text-center p-8">
-              <div><BookOpen size={28} className="text-terra mx-auto mb-3" strokeWidth={1.5} /><p className="font-display text-2xl italic text-ink-muted">Pick something to learn</p><p className="text-sm text-ink-muted mt-2">Tap any entry in the index — everything's unlocked.</p></div>
+              <div><BookOpen size={28} className="text-terra mx-auto mb-3" strokeWidth={1.5} /><p className="font-display text-2xl italic text-ink-muted">Pick something to learn</p><p className="text-sm text-ink-muted mt-2">Tap any entry — or use + to add your own.</p></div>
             </div>
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+// ============ LULL PHOTO FORMAT: model + render + export ============
+type LGrad = { type: 'linear'; from: string; to: string; angle: number };
+type LFill = string | LGrad;
+interface LEl {
+  id: string;
+  type: 'rect' | 'ellipse' | 'line' | 'text' | 'image' | 'path';
+  x: number; y: number; w: number; h: number;
+  rotation: number;
+  opacity: number;
+  fill: LFill;
+  stroke: string;
+  strokeWidth: number;
+  radius?: number;
+  text?: string; fontFamily?: string; fontSize?: number; bold?: boolean; align?: 'left' | 'center' | 'right';
+  src?: string;
+  origSrc?: string;
+  bright?: number; contrast?: number; sat?: number; blur?: number;
+  points?: number[];
+}
+interface LullDoc { lull: 'image'; version: number; width: number; height: number; background: string; elements: LEl[] }
+
+let _lidN = 0;
+const lid = () => `e${Date.now().toString(36)}${(_lidN++).toString(36)}`;
+const isGrad = (f: LFill): f is LGrad => typeof f === 'object' && f !== null && (f as any).type === 'linear';
+const blankLullDoc = (w: number, h: number): LullDoc => ({ lull: 'image', version: 1, width: w, height: h, background: '#ffffff', elements: [] });
+const imageLullDoc = (src: string, w: number, h: number): LullDoc => ({ lull: 'image', version: 1, width: w, height: h, background: '#ffffff', elements: [{ id: lid(), type: 'image', x: 0, y: 0, w, h, rotation: 0, opacity: 1, fill: 'none', stroke: 'none', strokeWidth: 0, src }] });
+
+function svgEsc(s: string) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+function gradCoords(angle: number) {
+  const a = (angle * Math.PI) / 180, x = Math.cos(a), y = Math.sin(a);
+  return { x1: (0.5 - x / 2).toFixed(4), y1: (0.5 - y / 2).toFixed(4), x2: (0.5 + x / 2).toFixed(4), y2: (0.5 + y / 2).toFixed(4) };
+}
+function elSvg(el: LEl, defs: string[]): string {
+  let fill = 'none';
+  if (isGrad(el.fill)) {
+    const id = `g_${el.id}`; const c = gradCoords(el.fill.angle);
+    defs.push(`<linearGradient id="${id}" x1="${c.x1}" y1="${c.y1}" x2="${c.x2}" y2="${c.y2}"><stop offset="0" stop-color="${el.fill.from}"/><stop offset="1" stop-color="${el.fill.to}"/></linearGradient>`);
+    fill = `url(#${id})`;
+  } else fill = el.fill || 'none';
+  const cx = el.x + el.w / 2, cy = el.y + el.h / 2;
+  const rot = el.rotation ? ` transform="rotate(${el.rotation} ${cx} ${cy})"` : '';
+  const op = el.opacity != null && el.opacity < 1 ? ` opacity="${el.opacity}"` : '';
+  const stroke = el.strokeWidth > 0 ? ` stroke="${el.stroke}" stroke-width="${el.strokeWidth}"` : '';
+  // brightness / contrast / saturation / blur → an SVG filter (exports natively)
+  const b = el.bright ?? 1, ct = el.contrast ?? 1, sa = el.sat ?? 1, bl = el.blur ?? 0;
+  let fa = '';
+  if (b !== 1 || ct !== 1 || sa !== 1 || bl > 0) {
+    const fid = `f_${el.id}`;
+    const slope = b * ct, intercept = (1 - ct) / 2;
+    const parts: string[] = [];
+    if (bl > 0) parts.push(`<feGaussianBlur stdDeviation="${bl}"/>`);
+    if (sa !== 1) parts.push(`<feColorMatrix type="saturate" values="${sa}"/>`);
+    if (b !== 1 || ct !== 1) parts.push(`<feComponentTransfer><feFuncR type="linear" slope="${slope}" intercept="${intercept}"/><feFuncG type="linear" slope="${slope}" intercept="${intercept}"/><feFuncB type="linear" slope="${slope}" intercept="${intercept}"/></feComponentTransfer>`);
+    defs.push(`<filter id="${fid}" x="-20%" y="-20%" width="140%" height="140%">${parts.join('')}</filter>`);
+    fa = ` filter="url(#${fid})"`;
+  }
+  switch (el.type) {
+    case 'rect': return `<rect x="${el.x}" y="${el.y}" width="${el.w}" height="${el.h}" rx="${el.radius || 0}" fill="${fill}"${stroke}${op}${fa}${rot}/>`;
+    case 'ellipse': return `<ellipse cx="${cx}" cy="${cy}" rx="${Math.abs(el.w / 2)}" ry="${Math.abs(el.h / 2)}" fill="${fill}"${stroke}${op}${fa}${rot}/>`;
+    case 'line': return `<line x1="${el.x}" y1="${el.y}" x2="${el.x + el.w}" y2="${el.y + el.h}" stroke="${el.stroke || '#000'}" stroke-width="${el.strokeWidth || 2}" stroke-linecap="round"${op}${fa}${rot}/>`;
+    case 'image': return `<image href="${el.src}" xlink:href="${el.src}" x="${el.x}" y="${el.y}" width="${el.w}" height="${el.h}" preserveAspectRatio="none"${op}${fa}${rot}/>`;
+    case 'text': {
+      const size = el.fontSize || 48;
+      const anchor = el.align === 'center' ? 'middle' : el.align === 'right' ? 'end' : 'start';
+      const tx = el.align === 'center' ? cx : el.align === 'right' ? el.x + el.w : el.x;
+      const col = isGrad(el.fill) ? fill : (el.fill || '#000000');
+      const tspans = (el.text || '').split('\n').map((ln, i) => `<tspan x="${tx}" dy="${i === 0 ? size : size * 1.2}">${svgEsc(ln)}</tspan>`).join('');
+      return `<text x="${tx}" y="${el.y}" font-family="${el.fontFamily || 'sans-serif'}" font-size="${size}" font-weight="${el.bold ? '700' : '400'}" fill="${col}" text-anchor="${anchor}"${op}${fa}${rot}>${tspans}</text>`;
+    }
+    case 'path': {
+      const p = el.points || []; if (p.length < 2) return '';
+      let d = `M ${p[0]} ${p[1]}`; for (let i = 2; i < p.length; i += 2) d += ` L ${p[i]} ${p[i + 1]}`;
+      return `<path d="${d}" fill="none" stroke="${el.stroke || '#000'}" stroke-width="${el.strokeWidth || 4}" stroke-linecap="round" stroke-linejoin="round"${op}${fa}${rot}/>`;
+    }
+  }
+  return '';
+}
+function svgMarkup(doc: LullDoc): string {
+  const defs: string[] = [];
+  const body = doc.elements.map(el => elSvg(el, defs)).join('');
+  return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${doc.width}" height="${doc.height}" viewBox="0 0 ${doc.width} ${doc.height}"><rect x="0" y="0" width="${doc.width}" height="${doc.height}" fill="${doc.background || '#ffffff'}"/><defs>${defs.join('')}</defs>${body}</svg>`;
+}
+function exportLullImage(doc: LullDoc, target: 'png' | 'jpg' | 'webp', filename: string) {
+  const url = URL.createObjectURL(new Blob([svgMarkup(doc)], { type: 'image/svg+xml;charset=utf-8' }));
+  const img = new Image();
+  img.onload = () => {
+    const c = document.createElement('canvas'); c.width = doc.width; c.height = doc.height;
+    const ctx = c.getContext('2d'); if (!ctx) { URL.revokeObjectURL(url); return; }
+    if (target === 'jpg') { ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, c.width, c.height); }
+    ctx.drawImage(img, 0, 0);
+    URL.revokeObjectURL(url);
+    const mime = target === 'png' ? 'image/png' : target === 'webp' ? 'image/webp' : 'image/jpeg';
+    c.toBlob(b => { if (b) downloadBlob(b, filename); }, mime, 0.92);
+  };
+  img.onerror = () => URL.revokeObjectURL(url);
+  img.src = url;
+}
+
+// ---- pixel operations for the photo editor (all offline, on canvas) ----
+function loadImage(src: string, cb: (im: HTMLImageElement | null) => void) {
+  const im = new Image(); im.onload = () => cb(im); im.onerror = () => cb(null); im.src = src;
+}
+// draw an image into a canvas capped at 2000px on the long side (keeps ops snappy)
+function opCanvas(im: HTMLImageElement) {
+  const max = 2000; let w = im.naturalWidth || im.width, h = im.naturalHeight || im.height;
+  const s = Math.min(1, max / Math.max(w, h)); w = Math.round(w * s); h = Math.round(h * s);
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  const ctx = c.getContext('2d')!; ctx.drawImage(im, 0, 0, w, h);
+  return { c, ctx, w, h };
+}
+// remove a near-uniform background sampled from the four corners
+function removeBgColor(src: string, tol: number, cb: (out: string) => void) {
+  loadImage(src, im => {
+    if (!im) { cb(src); return; }
+    const { c, ctx, w, h } = opCanvas(im);
+    const d = ctx.getImageData(0, 0, w, h); const p = d.data;
+    const corners = [[0, 0], [w - 1, 0], [0, h - 1], [w - 1, h - 1]];
+    let r = 0, g = 0, b = 0;
+    corners.forEach(([x, y]) => { const i = (y * w + x) * 4; r += p[i]; g += p[i + 1]; b += p[i + 2]; });
+    r /= 4; g /= 4; b /= 4;
+    const t = (tol / 100) * 441.7; const t2 = t * t;
+    for (let i = 0; i < p.length; i += 4) { const dr = p[i] - r, dg = p[i + 1] - g, db = p[i + 2] - b; if (dr * dr + dg * dg + db * db <= t2) p[i + 3] = 0; }
+    ctx.putImageData(d, 0, 0); cb(c.toDataURL('image/png'));
+  });
+}
+// flood-fill erase similar connected pixels from a fractional point (0..1)
+function floodErase(src: string, fx: number, fy: number, tol: number, cb: (out: string) => void) {
+  loadImage(src, im => {
+    if (!im) { cb(src); return; }
+    const { c, ctx, w, h } = opCanvas(im);
+    const sx = Math.max(0, Math.min(w - 1, Math.round(fx * w))), sy = Math.max(0, Math.min(h - 1, Math.round(fy * h)));
+    const d = ctx.getImageData(0, 0, w, h); const p = d.data;
+    const i0 = (sy * w + sx) * 4; const r0 = p[i0], g0 = p[i0 + 1], b0 = p[i0 + 2];
+    const t = (tol / 100) * 441.7; const t2 = t * t;
+    const seen = new Uint8Array(w * h); const st = [sy * w + sx];
+    while (st.length) {
+      const q = st.pop()!; if (seen[q]) continue; seen[q] = 1;
+      const i = q * 4; const dr = p[i] - r0, dg = p[i + 1] - g0, db = p[i + 2] - b0;
+      if (dr * dr + dg * dg + db * db > t2) continue;
+      p[i + 3] = 0; const x = q % w, y = (q / w) | 0;
+      if (x > 0) st.push(q - 1); if (x < w - 1) st.push(q + 1); if (y > 0) st.push(q - w); if (y < h - 1) st.push(q + w);
+    }
+    ctx.putImageData(d, 0, 0); cb(c.toDataURL('image/png'));
+  });
+}
+// keep or erase everything inside a freehand polygon (fractional points)
+function lassoBake(src: string, frac: number[], mode: 'keep' | 'erase', cb: (out: string) => void) {
+  loadImage(src, im => {
+    if (!im || frac.length < 6) { cb(src); return; }
+    const { c, ctx, w, h } = opCanvas(im);
+    ctx.save(); ctx.beginPath();
+    for (let i = 0; i < frac.length; i += 2) { const x = frac[i] * w, y = frac[i + 1] * h; if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y); }
+    ctx.closePath();
+    ctx.globalCompositeOperation = mode === 'keep' ? 'destination-in' : 'destination-out';
+    ctx.fillStyle = '#000'; ctx.fill(); ctx.restore();
+    cb(c.toDataURL('image/png'));
+  });
+}
+// crop to a fractional rect (full resolution)
+function cropBake(src: string, fx: number, fy: number, fw: number, fh: number, cb: (out: string) => void) {
+  loadImage(src, im => {
+    if (!im) { cb(src); return; }
+    const nw = im.naturalWidth || im.width, nh = im.naturalHeight || im.height;
+    const sx = Math.round(fx * nw), sy = Math.round(fy * nh), sw = Math.max(1, Math.round(fw * nw)), sh = Math.max(1, Math.round(fh * nh));
+    const c = document.createElement('canvas'); c.width = sw; c.height = sh;
+    const ctx = c.getContext('2d')!; ctx.drawImage(im, sx, sy, sw, sh, 0, 0, sw, sh);
+    cb(c.toDataURL('image/png'));
+  });
+}
+
+const bboxOf = (el: LEl): { x: number; y: number; w: number; h: number } => {
+  if (el.type === 'path' && el.points && el.points.length >= 2) {
+    const xs = el.points.filter((_, i) => i % 2 === 0), ys = el.points.filter((_, i) => i % 2 === 1);
+    const minx = Math.min(...xs), miny = Math.min(...ys);
+    return { x: minx, y: miny, w: Math.max(1, Math.max(...xs) - minx), h: Math.max(1, Math.max(...ys) - miny) };
+  }
+  if (el.type === 'line') return { x: Math.min(el.x, el.x + el.w), y: Math.min(el.y, el.y + el.h), w: Math.max(1, Math.abs(el.w)), h: Math.max(1, Math.abs(el.h)) };
+  return { x: el.x, y: el.y, w: el.w, h: el.h };
+};
+
+const LFONTS = [
+  { v: 'sans-serif', l: 'Sans' },
+  { v: 'Georgia, serif', l: 'Serif' },
+  { v: 'ui-monospace, monospace', l: 'Mono' },
+  { v: '"Trebuchet MS", sans-serif', l: 'Round' },
+  { v: '"Courier New", monospace', l: 'Type' },
+];
+const SWATCHES = ['#1F2421', '#ffffff', '#C8553D', '#E8A33D', '#5C8A5A', '#3D7EA6', '#7B5EA7', '#C86B98', '#000000'];
+
+// The photo editor — a layer canvas that reads & writes the editable .lull format.
+function PhotoEditor({ name, initial, theme, onExit, onClose }: { name: string; initial: LullDoc; theme: string; onExit: (doc: LullDoc) => void; onClose: () => void }) {
+  const [doc, setDoc] = useState<LullDoc>(initial);
+  const [selId, setSelId] = useState<string | null>(null);
+  const [tool, setTool] = useState<'select' | 'pen' | 'rect' | 'round' | 'ellipse' | 'line' | 'text'>('select');
+  const [newFill, setNewFill] = useState('#C8553D');
+  const [brush, setBrush] = useState(6);
+  const [scale, setScale] = useState(0.3);
+  const [showExport, setShowExport] = useState(false);
+  const [imgTool, setImgTool] = useState<null | 'crop' | 'lasso' | 'wand'>(null);
+  const [tol, setTol] = useState(30);
+  const [lassoMode, setLassoMode] = useState<'keep' | 'erase'>('keep');
+  const [cropRect, setCropRect] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
+  const [lassoPts, setLassoPts] = useState<number[]>([]);
+  const [stickers, setStickers] = useState<string[]>(() => { try { return JSON.parse(localStorage.getItem('lull-stickers') || '[]'); } catch { return []; } });
+  const [showStickers, setShowStickers] = useState(false);
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const stageRef = useRef<HTMLDivElement>(null);
+  const imgRef = useRef<HTMLInputElement>(null);
+  const stickerRef = useRef<HTMLInputElement>(null);
+  const drag = useRef<any>(null);
+  const drawId = useRef<string | null>(null);
+  const ovDrag = useRef<any>(null);
+
+  const sel = doc.elements.find(e => e.id === selId) || null;
+  const panelBg = theme === 'dark' ? '#17150F' : '#F3EBDD';
+
+  // fit-to-view
+  useEffect(() => {
+    const compute = () => {
+      const el = wrapRef.current; if (!el) return;
+      const aw = el.clientWidth - 40, ah = el.clientHeight - 40;
+      setScale(Math.max(0.05, Math.min(aw / doc.width, ah / doc.height, 1)));
+    };
+    compute();
+    window.addEventListener('resize', compute);
+    return () => window.removeEventListener('resize', compute);
+  }, [doc.width, doc.height]);
+
+  // global pointer handling for move / resize / freehand
+  useEffect(() => {
+    const canvasXY = (e: PointerEvent) => {
+      const r = stageRef.current!.getBoundingClientRect();
+      return { cx: (e.clientX - r.left) / scale, cy: (e.clientY - r.top) / scale };
+    };
+    const move = (e: PointerEvent) => {
+      if (drawId.current) {
+        const { cx, cy } = canvasXY(e);
+        setDoc(prev => ({ ...prev, elements: prev.elements.map(el => el.id === drawId.current ? { ...el, points: [...(el.points || []), Math.round(cx), Math.round(cy)] } : el) }));
+        return;
+      }
+      const d = drag.current; if (!d) return;
+      const dx = (e.clientX - d.sx) / scale, dy = (e.clientY - d.sy) / scale;
+      setDoc(prev => ({
+        ...prev, elements: prev.elements.map(el => {
+          if (el.id !== d.id) return el;
+          if (d.mode === 'move') {
+            if (d.pts) return { ...el, x: d.ox + dx, y: d.oy + dy, points: d.pts.map((v: number, i: number) => (i % 2 === 0 ? v + dx : v + dy)) };
+            return { ...el, x: d.ox + dx, y: d.oy + dy };
+          }
+          let x = d.ox, y = d.oy, w = d.ow, h = d.oh;
+          if (d.corner.includes('r')) w = Math.max(8, d.ow + dx);
+          if (d.corner.includes('l')) { w = Math.max(8, d.ow - dx); x = d.ox + (d.ow - w); }
+          if (d.corner.includes('b')) h = Math.max(8, d.oh + dy);
+          if (d.corner.includes('t')) { h = Math.max(8, d.oh - dy); y = d.oy + (d.oh - h); }
+          return { ...el, x, y, w, h };
+        }),
+      }));
+    };
+    const up = () => {
+      if (drawId.current) {
+        const id = drawId.current; drawId.current = null;
+        setDoc(prev => ({ ...prev, elements: prev.elements.map(el => { if (el.id !== id) return el; const b = bboxOf(el); return { ...el, x: b.x, y: b.y, w: b.w, h: b.h }; }) }));
+      }
+      drag.current = null;
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+    return () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); };
+  }, [scale]);
+
+  const add = (el: LEl) => { setDoc(prev => ({ ...prev, elements: [...prev.elements, el] })); setSelId(el.id); };
+  const updateSel = (patch: Partial<LEl>) => { if (!selId) return; setDoc(prev => ({ ...prev, elements: prev.elements.map(el => el.id === selId ? { ...el, ...patch } : el) })); };
+  const removeSel = () => { if (!selId) return; setDoc(prev => ({ ...prev, elements: prev.elements.filter(el => el.id !== selId) })); setSelId(null); };
+  const dupSel = () => { if (!sel) return; const c: LEl = { ...sel, id: lid(), x: sel.x + 20, y: sel.y + 20, points: sel.points ? sel.points.map((v, i) => (i % 2 === 0 ? v + 20 : v + 20)) : undefined }; add(c); };
+  const zOrder = (dir: 1 | -1) => {
+    if (!selId) return;
+    setDoc(prev => {
+      const i = prev.elements.findIndex(e => e.id === selId); if (i < 0) return prev;
+      const j = i + dir; if (j < 0 || j >= prev.elements.length) return prev;
+      const arr = [...prev.elements]; const [it] = arr.splice(i, 1); arr.splice(j, 0, it);
+      return { ...prev, elements: arr };
+    });
+  };
+
+  const onStageDown = (e: React.PointerEvent) => {
+    const r = stageRef.current!.getBoundingClientRect();
+    const cx = (e.clientX - r.left) / scale, cy = (e.clientY - r.top) / scale;
+    if (tool === 'select') { setSelId(null); return; }
+    if (tool === 'pen') {
+      const el: LEl = { id: lid(), type: 'path', x: cx, y: cy, w: 0, h: 0, rotation: 0, opacity: 1, fill: 'none', stroke: newFill, strokeWidth: brush, points: [Math.round(cx), Math.round(cy)] };
+      add(el); drawId.current = el.id; return;
+    }
+    let el: LEl;
+    if (tool === 'rect') el = { id: lid(), type: 'rect', x: cx - 120, y: cy - 70, w: 240, h: 140, rotation: 0, opacity: 1, fill: newFill, stroke: 'none', strokeWidth: 0, radius: 0 };
+    else if (tool === 'round') el = { id: lid(), type: 'rect', x: cx - 120, y: cy - 45, w: 240, h: 90, rotation: 0, opacity: 1, fill: newFill, stroke: 'none', strokeWidth: 0, radius: 28 };
+    else if (tool === 'ellipse') el = { id: lid(), type: 'ellipse', x: cx - 90, y: cy - 90, w: 180, h: 180, rotation: 0, opacity: 1, fill: newFill, stroke: 'none', strokeWidth: 0 };
+    else if (tool === 'line') el = { id: lid(), type: 'line', x: cx - 100, y: cy, w: 200, h: 0, rotation: 0, opacity: 1, fill: 'none', stroke: newFill, strokeWidth: brush };
+    else el = { id: lid(), type: 'text', x: cx - 150, y: cy - 30, w: 300, h: 70, rotation: 0, opacity: 1, fill: '#1F2421', stroke: 'none', strokeWidth: 0, text: 'Your text', fontFamily: 'sans-serif', fontSize: 48, bold: false, align: 'left' };
+    add(el); setTool('select');
+  };
+
+  const startMove = (e: React.PointerEvent, el: LEl) => {
+    if (tool !== 'select') return;
+    e.stopPropagation(); setSelId(el.id);
+    drag.current = { mode: 'move', id: el.id, sx: e.clientX, sy: e.clientY, ox: el.x, oy: el.y, pts: el.points ? [...el.points] : null };
+  };
+  const startResize = (e: React.PointerEvent, corner: string) => {
+    if (!sel) return; e.stopPropagation();
+    drag.current = { mode: 'resize', id: sel.id, corner, sx: e.clientX, sy: e.clientY, ox: sel.x, oy: sel.y, ow: sel.w, oh: sel.h };
+  };
+
+  const addImage = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0]; if (!f) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const src = String(reader.result || ''); const im = new Image();
+      im.onload = () => {
+        const maxW = doc.width * 0.7; const r = im.naturalWidth ? maxW / im.naturalWidth : 1;
+        add({ id: lid(), type: 'image', x: doc.width * 0.15, y: doc.height * 0.15, w: im.naturalWidth * r, h: im.naturalHeight * r, rotation: 0, opacity: 1, fill: 'none', stroke: 'none', strokeWidth: 0, src });
+      };
+      im.src = src;
+    };
+    reader.readAsDataURL(f); e.target.value = '';
+  };
+
+  // persist the reusable sticker tray
+  useEffect(() => { try { localStorage.setItem('lull-stickers', JSON.stringify(stickers)); } catch { /* storage full */ } }, [stickers]);
+  const importSticker = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0]; if (!f) return;
+    const reader = new FileReader();
+    reader.onload = () => setStickers(s => [String(reader.result || ''), ...s].slice(0, 30));
+    reader.readAsDataURL(f); e.target.value = '';
+  };
+  const placeSticker = (src: string) => {
+    const im = new Image();
+    im.onload = () => { const maxW = doc.width * 0.4; const r = im.naturalWidth ? maxW / im.naturalWidth : 1; add({ id: lid(), type: 'image', x: doc.width * 0.3, y: doc.height * 0.3, w: (im.naturalWidth || 200) * r, h: (im.naturalHeight || 200) * r, rotation: 0, opacity: 1, fill: 'none', stroke: 'none', strokeWidth: 0, src }); };
+    im.src = src;
+  };
+  const saveAsSticker = () => { if (sel?.type === 'image' && sel.src) setStickers(s => [sel.src!, ...s.filter(x => x !== sel.src)].slice(0, 30)); };
+
+  // image ops — all bake onto the selected image element
+  const applyBg = () => { if (sel?.type !== 'image' || !sel.src) return; const from = sel.origSrc || sel.src; updateSel({ origSrc: from }); removeBgColor(from, tol, out => updateSel({ src: out, origSrc: from })); };
+  const resetBg = () => { if (sel?.type === 'image' && sel.origSrc) updateSel({ src: sel.origSrc, origSrc: undefined }); };
+  const applyCrop = () => {
+    if (!cropRect || sel?.type !== 'image' || !sel.src) return;
+    const fx = (cropRect.x - sel.x) / sel.w, fy = (cropRect.y - sel.y) / sel.h, fw = cropRect.w / sel.w, fh = cropRect.h / sel.h;
+    const box = { x: cropRect.x, y: cropRect.y, w: cropRect.w, h: cropRect.h };
+    cropBake(sel.src, Math.max(0, fx), Math.max(0, fy), Math.min(1, fw), Math.min(1, fh), out => updateSel({ src: out, origSrc: undefined, x: box.x, y: box.y, w: box.w, h: box.h }));
+    setCropRect(null); setImgTool(null);
+  };
+  const applyLasso = () => {
+    if (lassoPts.length < 6 || sel?.type !== 'image' || !sel.src) return;
+    const frac: number[] = []; for (let i = 0; i < lassoPts.length; i += 2) { frac.push((lassoPts[i] - sel.x) / sel.w, (lassoPts[i + 1] - sel.y) / sel.h); }
+    lassoBake(sel.src, frac, lassoMode, out => updateSel({ src: out, origSrc: undefined }));
+    setLassoPts([]); setImgTool(null);
+  };
+
+  // overlay gestures for crop / lasso / magic-erase
+  const ovXY = (e: React.PointerEvent) => { const r = stageRef.current!.getBoundingClientRect(); return { x: (e.clientX - r.left) / scale, y: (e.clientY - r.top) / scale }; };
+  const ovDown = (e: React.PointerEvent) => {
+    const { x, y } = ovXY(e);
+    if (imgTool === 'crop') { ovDrag.current = { sx: x, sy: y }; setCropRect({ x, y, w: 0, h: 0 }); }
+    else if (imgTool === 'lasso') { ovDrag.current = { drawing: true }; setLassoPts([x, y]); }
+    else if (imgTool === 'wand' && sel?.type === 'image' && sel.src) {
+      const fx = (x - sel.x) / sel.w, fy = (y - sel.y) / sel.h;
+      if (fx >= 0 && fx <= 1 && fy >= 0 && fy <= 1) floodErase(sel.src, fx, fy, tol, out => updateSel({ src: out }));
+    }
+  };
+  const ovMove = (e: React.PointerEvent) => {
+    if (!ovDrag.current) return; const { x, y } = ovXY(e);
+    if (imgTool === 'crop') { const s = ovDrag.current; setCropRect({ x: Math.min(s.sx, x), y: Math.min(s.sy, y), w: Math.abs(x - s.sx), h: Math.abs(y - s.sy) }); }
+    else if (imgTool === 'lasso') setLassoPts(pts => [...pts, x, y]);
+  };
+  const ovUp = () => { ovDrag.current = null; };
+  const startImgTool = (t: 'crop' | 'lasso' | 'wand') => { setImgTool(t); setCropRect(null); setLassoPts([]); };
+
+  // fill helpers for the properties panel
+  const fillMode: 'solid' | 'gradient' | 'none' = sel ? (isGrad(sel.fill) ? 'gradient' : sel.fill === 'none' ? 'none' : 'solid') : 'none';
+  const solidColor = sel && typeof sel.fill === 'string' && sel.fill !== 'none' ? sel.fill : '#C8553D';
+  const grad = sel && isGrad(sel.fill) ? sel.fill : { type: 'linear' as const, from: '#C8553D', to: '#E8A33D', angle: 90 };
+
+  const Tool = ({ t, title, children }: { t: typeof tool; title: string; children: any }) => (
+    <button onClick={() => setTool(t)} title={title} className={`w-9 h-9 rounded-lg flex items-center justify-center transition-colors ${tool === t ? 'bg-terra text-cream' : 'text-ink-muted hover:text-ink hover:bg-card'}`}>{children}</button>
+  );
+  const Num = ({ label, value, onChange }: { label: string; value: number; onChange: (n: number) => void }) => (
+    <label className="flex items-center gap-1.5 text-xs text-ink-muted">{label}
+      <input type="number" value={Math.round(value)} onChange={e => onChange(Number(e.target.value) || 0)} className="w-16 bg-cream border border-cream-dark rounded-lg px-2 py-1 text-ink text-xs focus:outline-none focus:border-terra" />
+    </label>
+  );
+
+  return (
+    <div className="fixed inset-0 z-40 bg-cream animate-fade-in flex flex-col" style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
+      {/* header / tools */}
+      <div className="flex items-center gap-1.5 px-3 sm:px-4 py-2 border-b border-cream-dark shrink-0 flex-wrap">
+        <button onClick={() => onExit(doc)} className="flex items-center gap-1 text-sm text-terra mr-1"><ChevronLeft size={16} /> Files</button>
+        <span className="text-sm text-ink-muted mr-2 truncate max-w-[28vw] hidden sm:block">{name}</span>
+        <div className="w-px h-6 bg-cream-dark mx-1" />
+        <Tool t="select" title="Select & move"><MousePointerClick size={17} strokeWidth={1.9} /></Tool>
+        <Tool t="pen" title="Draw"><Pencil size={17} strokeWidth={1.9} /></Tool>
+        <Tool t="rect" title="Rectangle"><Square size={17} strokeWidth={1.9} /></Tool>
+        <Tool t="round" title="Rounded / button"><Square size={17} strokeWidth={1.9} className="rounded-[4px]" style={{ borderRadius: 4 }} /></Tool>
+        <Tool t="ellipse" title="Ellipse"><Circle size={17} strokeWidth={1.9} /></Tool>
+        <Tool t="line" title="Line"><Minus size={18} strokeWidth={2.4} /></Tool>
+        <Tool t="text" title="Text"><Type size={17} strokeWidth={1.9} /></Tool>
+        <button onClick={() => imgRef.current?.click()} title="Add image" className="w-9 h-9 rounded-lg flex items-center justify-center text-ink-muted hover:text-ink hover:bg-card transition-colors"><ImageIcon size={17} strokeWidth={1.9} /></button>
+        <button onClick={() => setShowStickers(v => !v)} title="Stickers" className={`w-9 h-9 rounded-lg flex items-center justify-center transition-colors ${showStickers ? 'bg-terra text-cream' : 'text-ink-muted hover:text-ink hover:bg-card'}`}><Sticker size={17} strokeWidth={1.9} /></button>
+        <input ref={imgRef} type="file" accept="image/*" onChange={addImage} className="hidden" />
+        <label className="w-7 h-7 rounded-full border-2 border-cream-dark overflow-hidden ml-1 cursor-pointer" title="Colour for new shapes" style={{ background: newFill }}>
+          <input type="color" value={newFill} onChange={e => setNewFill(e.target.value)} className="opacity-0 w-full h-full cursor-pointer" />
+        </label>
+        {tool === 'pen' && (
+          <div className="flex items-center gap-1 text-xs text-ink-muted ml-1" title="Brush size">
+            <span className="hidden sm:inline">Brush</span>
+            <button onClick={() => setBrush(b => Math.max(1, b - 2))} className="px-1.5 py-0.5 rounded hover:bg-card">−</button>
+            <span className="w-5 text-center">{brush}</span>
+            <button onClick={() => setBrush(b => Math.min(60, b + 2))} className="px-1.5 py-0.5 rounded hover:bg-card">+</button>
+          </div>
+        )}
+        <div className="flex-1" />
+        <div className="flex items-center gap-1 text-xs text-ink-muted">
+          <button onClick={() => setScale(s => Math.max(0.05, s - 0.1))} className="px-2 py-1 rounded hover:bg-card">−</button>
+          <span className="w-10 text-center">{Math.round(scale * 100)}%</span>
+          <button onClick={() => setScale(s => Math.min(3, s + 0.1))} className="px-2 py-1 rounded hover:bg-card">+</button>
+        </div>
+        <div className="relative">
+          <button onClick={() => setShowExport(v => !v)} className="flex items-center gap-1.5 bg-ink text-cream rounded-full px-3 py-1.5 text-sm hover:bg-terra transition-colors"><Download size={14} strokeWidth={2} /> Export</button>
+          {showExport && (
+            <div className="absolute right-0 top-full mt-1 bg-cream border border-cream-dark rounded-xl shadow-xl p-1 z-10 w-40">
+              {(['png', 'jpg', 'webp'] as const).map(t => (
+                <button key={t} onClick={() => { exportLullImage(doc, t, `${baseName(name)}.${t}`); setShowExport(false); }} className="w-full text-left px-3 py-2 rounded-lg text-sm text-ink hover:bg-card">Image · .{t}</button>
+              ))}
+              <div className="h-px bg-cream-dark my-1" />
+              <button onClick={() => { downloadText(JSON.stringify(doc), `${baseName(name)}.lull`, 'application/json'); setShowExport(false); }} className="w-full text-left px-3 py-2 rounded-lg text-sm text-terra font-medium hover:bg-terra-light">Editable · .lull</button>
+            </div>
+          )}
+        </div>
+        <button onClick={onClose} className="text-ink-muted hover:text-ink p-1.5" aria-label="Close"><X size={20} /></button>
+      </div>
+
+      <div className="flex-1 flex flex-col sm:flex-row min-h-0">
+        {/* stage */}
+        <div ref={wrapRef} className="relative flex-1 min-h-0 overflow-auto flex items-center justify-center p-5" style={{ background: theme === 'dark' ? '#0F0D0A' : '#E7DECB' }}>
+          <div ref={stageRef} onPointerDown={onStageDown} className="relative shadow-2xl shrink-0" style={{ width: doc.width * scale, height: doc.height * scale, cursor: tool === 'select' ? 'default' : 'crosshair' }}>
+            <div className="absolute inset-0 pointer-events-none" dangerouslySetInnerHTML={{ __html: svgMarkup(doc) }} />
+            {/* interactive hit layer */}
+            {doc.elements.map(el => {
+              const b = bboxOf(el);
+              return (
+                <div
+                  key={el.id}
+                  onPointerDown={e => startMove(e, el)}
+                  className="absolute"
+                  style={{ left: b.x * scale, top: b.y * scale, width: b.w * scale, height: b.h * scale, transform: el.rotation ? `rotate(${el.rotation}deg)` : undefined, pointerEvents: tool === 'select' && !imgTool ? 'auto' : 'none', outline: selId === el.id ? '2px solid var(--terra, #C8553D)' : 'none', cursor: 'move' }}
+                />
+              );
+            })}
+            {/* resize handles (unrotated box types only) */}
+            {!imgTool && sel && sel.rotation === 0 && sel.type !== 'path' && sel.type !== 'line' && (() => {
+              const b = bboxOf(sel);
+              return (['tl', 'tr', 'bl', 'br'] as const).map(corner => (
+                <div key={corner} onPointerDown={e => startResize(e, corner)} className="absolute w-3 h-3 bg-cream border-2 border-terra rounded-sm" style={{
+                  left: (corner.includes('l') ? b.x : b.x + b.w) * scale - 6,
+                  top: (corner.includes('t') ? b.y : b.y + b.h) * scale - 6,
+                  cursor: corner === 'tl' || corner === 'br' ? 'nwse-resize' : 'nesw-resize',
+                }} />
+              ));
+            })()}
+
+            {/* image-op overlay (crop / lasso / magic-erase) */}
+            {imgTool && sel?.type === 'image' && (
+              <div className="absolute inset-0" style={{ cursor: imgTool === 'wand' ? 'crosshair' : 'crosshair' }} onPointerDown={ovDown} onPointerMove={ovMove} onPointerUp={ovUp}>
+                {imgTool === 'crop' && cropRect && (
+                  <div className="absolute border-2 border-terra" style={{ left: cropRect.x * scale, top: cropRect.y * scale, width: cropRect.w * scale, height: cropRect.h * scale, boxShadow: '0 0 0 9999px rgba(0,0,0,0.35)' }} />
+                )}
+                {imgTool === 'lasso' && lassoPts.length >= 2 && (
+                  <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox={`0 0 ${doc.width} ${doc.height}`} preserveAspectRatio="none">
+                    <polyline points={lassoPts.map((v, i) => (i % 2 === 0 ? `${v},` : `${v} `)).join('')} fill="rgba(200,85,61,0.15)" stroke="#C8553D" strokeWidth={2 / scale} />
+                  </svg>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* floating action bar for image ops */}
+          {imgTool && sel?.type === 'image' && (
+            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 bg-ink text-cream rounded-full px-3 py-2 shadow-xl flex items-center gap-2 text-sm">
+              {imgTool === 'crop' && <><span className="px-1 text-cream/80">Drag to crop</span><button onClick={applyCrop} disabled={!cropRect} className="bg-cream text-ink rounded-full px-3 py-1 font-medium disabled:opacity-50">Apply</button></>}
+              {imgTool === 'lasso' && <>
+                <span className="px-1 text-cream/80 hidden sm:inline">Draw around it</span>
+                <button onClick={() => setLassoMode(m => m === 'keep' ? 'erase' : 'keep')} className="bg-cream/20 rounded-full px-3 py-1">{lassoMode === 'keep' ? 'Keep inside' : 'Erase inside'}</button>
+                <button onClick={applyLasso} disabled={lassoPts.length < 6} className="bg-cream text-ink rounded-full px-3 py-1 font-medium disabled:opacity-50">Apply</button>
+              </>}
+              {imgTool === 'wand' && <>
+                <span className="px-1 text-cream/80 hidden sm:inline">Tap areas to erase</span>
+                <label className="flex items-center gap-1.5 text-xs">Tol<input type="range" min={2} max={100} value={tol} onChange={e => setTol(Number(e.target.value))} className="w-20 accent-terra" /></label>
+              </>}
+              <button onClick={() => { setImgTool(null); setCropRect(null); setLassoPts([]); }} className="text-cream/80 hover:text-cream px-2">Done</button>
+            </div>
+          )}
+        </div>
+
+        {/* properties / settings */}
+        <div className="w-full sm:w-72 shrink-0 border-t sm:border-t-0 sm:border-l border-cream-dark overflow-y-auto" style={{ background: panelBg }}>
+          {!sel ? (
+            <div className="p-4 space-y-4">
+              <div className="text-xs uppercase tracking-wider text-ink-muted">Canvas</div>
+              <div>
+                <div className="text-xs text-ink-muted mb-1.5">Size</div>
+                <div className="grid grid-cols-2 gap-2">
+                  {[['Square', 1080, 1080], ['Portrait', 1080, 1350], ['Story', 1080, 1920], ['Landscape', 1920, 1080]].map(([l, w, h]) => (
+                    <button key={l as string} onClick={() => setDoc(prev => ({ ...prev, width: w as number, height: h as number }))} className={`rounded-xl border-2 py-2 text-xs font-medium transition-colors ${doc.width === w && doc.height === h ? 'border-terra text-terra bg-terra-light' : 'border-cream-dark text-ink-muted hover:border-terra'}`}>{l}</button>
+                  ))}
+                </div>
+                <div className="flex items-center gap-2 mt-2">
+                  <Num label="W" value={doc.width} onChange={n => setDoc(prev => ({ ...prev, width: Math.max(16, n) }))} />
+                  <Num label="H" value={doc.height} onChange={n => setDoc(prev => ({ ...prev, height: Math.max(16, n) }))} />
+                </div>
+              </div>
+              <div>
+                <div className="text-xs text-ink-muted mb-1.5">Background</div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <label className="w-8 h-8 rounded-lg border-2 border-cream-dark overflow-hidden cursor-pointer" style={{ background: doc.background }}>
+                    <input type="color" value={doc.background} onChange={e => setDoc(prev => ({ ...prev, background: e.target.value }))} className="opacity-0 w-full h-full cursor-pointer" />
+                  </label>
+                  {SWATCHES.slice(0, 7).map(c => <button key={c} onClick={() => setDoc(prev => ({ ...prev, background: c }))} className="w-7 h-7 rounded-lg border border-cream-dark" style={{ background: c }} />)}
+                </div>
+              </div>
+              <p className="text-xs text-ink-muted leading-relaxed pt-2 border-t border-cream-dark">Pick a tool above and tap the canvas to add a shape, text or drawing. Select something to edit it here. Export as <span className="text-terra font-medium">.lull</span> to keep every layer editable.</p>
+            </div>
+          ) : (
+            <div className="p-4 space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="text-xs uppercase tracking-wider text-ink-muted">{sel.type === 'rect' && sel.radius ? 'Rounded' : sel.type}</div>
+                <div className="flex items-center gap-1">
+                  <button onClick={() => zOrder(1)} title="Bring forward" className="p-1.5 rounded-lg text-ink-muted hover:text-ink hover:bg-card"><Layers size={15} /></button>
+                  <button onClick={dupSel} title="Duplicate" className="p-1.5 rounded-lg text-ink-muted hover:text-ink hover:bg-card"><Copy size={15} /></button>
+                  <button onClick={removeSel} title="Delete" className="p-1.5 rounded-lg text-ink-muted hover:text-terra hover:bg-card"><Trash2 size={15} /></button>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 flex-wrap">
+                <Num label="X" value={sel.x} onChange={n => updateSel({ x: n })} />
+                <Num label="Y" value={sel.y} onChange={n => updateSel({ y: n })} />
+                <Num label="W" value={sel.w} onChange={n => updateSel({ w: Math.max(8, n) })} />
+                <Num label="H" value={sel.h} onChange={n => updateSel({ h: Math.max(8, n) })} />
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between text-xs text-ink-muted mb-1"><span>Rotation</span><span>{Math.round(sel.rotation)}°</span></div>
+                <input type="range" min={0} max={359} value={sel.rotation} onChange={e => updateSel({ rotation: Number(e.target.value) })} className="w-full accent-terra" />
+              </div>
+              <div>
+                <div className="flex items-center justify-between text-xs text-ink-muted mb-1"><span>Opacity</span><span>{Math.round(sel.opacity * 100)}%</span></div>
+                <input type="range" min={0} max={1} step={0.05} value={sel.opacity} onChange={e => updateSel({ opacity: Number(e.target.value) })} className="w-full accent-terra" />
+              </div>
+
+              {sel.type === 'text' && (
+                <div className="space-y-2">
+                  <textarea value={sel.text || ''} onChange={e => updateSel({ text: e.target.value })} rows={2} className="w-full bg-cream border border-cream-dark rounded-xl px-3 py-2 text-sm text-ink focus:outline-none focus:border-terra resize-none" />
+                  <div className="flex items-center gap-2">
+                    <select value={sel.fontFamily} onChange={e => updateSel({ fontFamily: e.target.value })} className="flex-1 bg-cream border border-cream-dark rounded-lg px-2 py-1.5 text-sm text-ink focus:outline-none focus:border-terra">
+                      {LFONTS.map(f => <option key={f.v} value={f.v}>{f.l}</option>)}
+                    </select>
+                    <Num label="" value={sel.fontSize || 48} onChange={n => updateSel({ fontSize: Math.max(6, n) })} />
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <button onClick={() => updateSel({ bold: !sel.bold })} className={`px-3 py-1.5 rounded-lg text-sm font-bold ${sel.bold ? 'bg-terra text-cream' : 'text-ink-muted hover:bg-card'}`}>B</button>
+                    {(['left', 'center', 'right'] as const).map(a => (
+                      <button key={a} onClick={() => updateSel({ align: a })} className={`px-3 py-1.5 rounded-lg text-sm ${sel.align === a ? 'bg-terra text-cream' : 'text-ink-muted hover:bg-card'}`}>{a[0].toUpperCase()}</button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* fill */}
+              <div>
+                <div className="text-xs text-ink-muted mb-1.5">{sel.type === 'text' ? 'Colour' : 'Fill'}</div>
+                <div className="flex gap-1 mb-2">
+                  {(['solid', 'gradient', 'none'] as const).map(m => (
+                    <button key={m} onClick={() => {
+                      if (m === 'solid') updateSel({ fill: solidColor });
+                      else if (m === 'none') updateSel({ fill: 'none' });
+                      else updateSel({ fill: grad });
+                    }} className={`flex-1 py-1.5 rounded-lg text-xs font-medium capitalize ${fillMode === m ? 'bg-terra text-cream' : 'text-ink-muted hover:bg-card'}`}>{m}</button>
+                  ))}
+                </div>
+                {fillMode === 'solid' && (
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <label className="w-8 h-8 rounded-lg border-2 border-cream-dark overflow-hidden cursor-pointer" style={{ background: solidColor }}>
+                      <input type="color" value={solidColor} onChange={e => updateSel({ fill: e.target.value })} className="opacity-0 w-full h-full cursor-pointer" />
+                    </label>
+                    {SWATCHES.map(c => <button key={c} onClick={() => updateSel({ fill: c })} className="w-6 h-6 rounded-md border border-cream-dark" style={{ background: c }} />)}
+                  </div>
+                )}
+                {fillMode === 'gradient' && (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <label className="w-8 h-8 rounded-lg border-2 border-cream-dark overflow-hidden cursor-pointer" style={{ background: grad.from }}><input type="color" value={grad.from} onChange={e => updateSel({ fill: { ...grad, from: e.target.value } })} className="opacity-0 w-full h-full cursor-pointer" /></label>
+                      <span className="text-ink-muted text-xs">→</span>
+                      <label className="w-8 h-8 rounded-lg border-2 border-cream-dark overflow-hidden cursor-pointer" style={{ background: grad.to }}><input type="color" value={grad.to} onChange={e => updateSel({ fill: { ...grad, to: e.target.value } })} className="opacity-0 w-full h-full cursor-pointer" /></label>
+                      <div className="flex-1 h-8 rounded-lg border border-cream-dark" style={{ background: `linear-gradient(${grad.angle}deg, ${grad.from}, ${grad.to})` }} />
+                    </div>
+                    <div className="flex items-center justify-between text-xs text-ink-muted"><span>Angle</span><span>{grad.angle}°</span></div>
+                    <input type="range" min={0} max={359} value={grad.angle} onChange={e => updateSel({ fill: { ...grad, angle: Number(e.target.value) } })} className="w-full accent-terra" />
+                  </div>
+                )}
+              </div>
+
+              {/* stroke */}
+              {sel.type !== 'image' && (
+                <div>
+                  <div className="text-xs text-ink-muted mb-1.5">{sel.type === 'line' || sel.type === 'path' ? 'Colour' : 'Border'}</div>
+                  <div className="flex items-center gap-2">
+                    <label className="w-8 h-8 rounded-lg border-2 border-cream-dark overflow-hidden cursor-pointer" style={{ background: sel.stroke === 'none' ? '#00000000' : sel.stroke }}>
+                      <input type="color" value={sel.stroke === 'none' ? '#000000' : sel.stroke} onChange={e => updateSel({ stroke: e.target.value })} className="opacity-0 w-full h-full cursor-pointer" />
+                    </label>
+                    <Num label="W" value={sel.strokeWidth} onChange={n => updateSel({ strokeWidth: Math.max(0, n) })} />
+                    {sel.type !== 'line' && sel.type !== 'path' && <button onClick={() => updateSel({ stroke: 'none', strokeWidth: 0 })} className="text-xs text-ink-muted hover:text-terra px-2 py-1">clear</button>}
+                  </div>
+                </div>
+              )}
+
+              {sel.type === 'rect' && (
+                <div>
+                  <div className="flex items-center justify-between text-xs text-ink-muted mb-1"><span>Corner radius</span><span>{sel.radius || 0}</span></div>
+                  <input type="range" min={0} max={Math.round(Math.min(sel.w, sel.h) / 2)} value={sel.radius || 0} onChange={e => updateSel({ radius: Number(e.target.value) })} className="w-full accent-terra" />
+                </div>
+              )}
+
+              {/* adjustments */}
+              <div className="pt-3 border-t border-cream-dark space-y-2">
+                <div className="flex items-center gap-1.5 text-xs uppercase tracking-wider text-ink-muted"><SlidersHorizontal size={13} /> Adjust</div>
+                {([['Brightness', 'bright', 0, 2], ['Contrast', 'contrast', 0, 2], ['Saturation', 'sat', 0, 2], ['Blur', 'blur', 0, 40]] as const).map(([lab, key, min, max]) => {
+                  const def = key === 'blur' ? 0 : 1; const val = (sel as any)[key] ?? def;
+                  return (
+                    <div key={key}>
+                      <div className="flex items-center justify-between text-xs text-ink-muted"><span>{lab}</span><button onClick={() => updateSel({ [key]: def } as any)} className="hover:text-terra">{key === 'blur' ? val : Math.round(val * 100) + '%'}</button></div>
+                      <input type="range" min={min} max={max} step={key === 'blur' ? 1 : 0.01} value={val} onChange={e => updateSel({ [key]: Number(e.target.value) } as any)} className="w-full accent-terra" />
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* image-only tools */}
+              {sel.type === 'image' && (
+                <div className="pt-3 border-t border-cream-dark space-y-3">
+                  <div className="flex items-center gap-1.5 text-xs uppercase tracking-wider text-ink-muted"><Wand2 size={13} /> Edit photo</div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button onClick={() => startImgTool('crop')} className={`flex items-center justify-center gap-1.5 rounded-xl border-2 py-2 text-sm font-medium transition-colors ${imgTool === 'crop' ? 'border-terra text-terra bg-terra-light' : 'border-cream-dark text-ink hover:border-terra'}`}><Crop size={15} /> Crop</button>
+                    <button onClick={() => startImgTool('wand')} className={`flex items-center justify-center gap-1.5 rounded-xl border-2 py-2 text-sm font-medium transition-colors ${imgTool === 'wand' ? 'border-terra text-terra bg-terra-light' : 'border-cream-dark text-ink hover:border-terra'}`}><Eraser size={15} /> Magic erase</button>
+                    <button onClick={() => startImgTool('lasso')} className={`flex items-center justify-center gap-1.5 rounded-xl border-2 py-2 text-sm font-medium transition-colors ${imgTool === 'lasso' ? 'border-terra text-terra bg-terra-light' : 'border-cream-dark text-ink hover:border-terra'}`}><Scissors size={15} /> Lasso</button>
+                    <button onClick={saveAsSticker} className="flex items-center justify-center gap-1.5 rounded-xl border-2 border-cream-dark text-ink py-2 text-sm font-medium hover:border-terra transition-colors"><Sticker size={15} /> Save sticker</button>
+                  </div>
+                  <div>
+                    <div className="flex items-center justify-between text-xs text-ink-muted mb-1"><span>Remove background</span><span>tol {tol}</span></div>
+                    <input type="range" min={2} max={100} value={tol} onChange={e => setTol(Number(e.target.value))} className="w-full accent-terra mb-2" />
+                    <div className="flex gap-2">
+                      <button onClick={applyBg} className="flex-1 bg-ink text-cream rounded-full py-2 text-sm hover:bg-terra transition-colors">Remove BG</button>
+                      {sel.origSrc && <button onClick={resetBg} className="rounded-full border border-cream-dark px-3 text-sm text-ink hover:border-terra transition-colors">Reset</button>}
+                    </div>
+                    <p className="text-[11px] text-ink-muted mt-1.5 leading-snug">Best on clean, even backgrounds. Use Magic erase to tap away leftover spots.</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* sticker tray */}
+      {showStickers && (
+        <div className="absolute left-0 right-0 sm:right-72 bottom-0 z-20 bg-cream border-t border-cream-dark p-3" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 0.75rem)' }}>
+          <div className="flex items-center gap-2 mb-2">
+            <Sticker size={15} className="text-terra" />
+            <span className="text-sm font-medium text-ink">Stickers</span>
+            <span className="text-xs text-ink-muted">tap to place · reused across photos</span>
+            <div className="flex-1" />
+            <button onClick={() => stickerRef.current?.click()} className="flex items-center gap-1 text-sm text-terra"><Plus size={14} /> Import</button>
+            <button onClick={() => setShowStickers(false)} className="text-ink-muted hover:text-ink p-1"><X size={16} /></button>
+          </div>
+          <input ref={stickerRef} type="file" accept="image/*" onChange={importSticker} className="hidden" />
+          {stickers.length === 0 ? (
+            <p className="text-xs text-ink-muted py-4 text-center">No stickers yet — import an image, or select a photo layer and tap “Save sticker”.</p>
+          ) : (
+            <div className="flex gap-2 overflow-x-auto pb-1">
+              {stickers.map((s, i) => (
+                <div key={i} className="relative shrink-0 group">
+                  <button onClick={() => placeSticker(s)} className="w-16 h-16 rounded-xl border border-cream-dark bg-card overflow-hidden hover:border-terra transition-colors" style={{ backgroundImage: `url(${s})`, backgroundSize: 'contain', backgroundPosition: 'center', backgroundRepeat: 'no-repeat' }} />
+                  <button onClick={() => setStickers(list => list.filter((_, j) => j !== i))} className="absolute -top-1.5 -right-1.5 bg-ink text-cream rounded-full w-5 h-5 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"><X size={11} /></button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============ AUDIO EDITOR: DSP helpers ============
+interface AClip { id: string; name: string; buffer: AudioBuffer; start: number; end: number; volume: number; speed: number; pitch: number; bass: number; fadeIn: number; fadeOut: number; color: string }
+
+function sliceBuffer(ctx: BaseAudioContext, buf: AudioBuffer, start: number, end: number): AudioBuffer {
+  const s = Math.max(0, Math.floor(start * buf.sampleRate));
+  const e = Math.min(buf.length, Math.floor(end * buf.sampleRate));
+  const len = Math.max(1, e - s);
+  const out = ctx.createBuffer(buf.numberOfChannels, len, buf.sampleRate);
+  for (let ch = 0; ch < buf.numberOfChannels; ch++) out.getChannelData(ch).set(buf.getChannelData(ch).subarray(s, e));
+  return out;
+}
+function resampleBuf(ctx: BaseAudioContext, buf: AudioBuffer, factor: number): AudioBuffer {
+  const nch = buf.numberOfChannels, sr = buf.sampleRate;
+  const outLen = Math.max(1, Math.floor(buf.length / factor));
+  const out = ctx.createBuffer(nch, outLen, sr);
+  for (let ch = 0; ch < nch; ch++) {
+    const ib = buf.getChannelData(ch), ob = out.getChannelData(ch);
+    for (let i = 0; i < outLen; i++) { const pos = i * factor, i0 = Math.floor(pos), frac = pos - i0, a = ib[i0] || 0, b = ib[i0 + 1] || 0; ob[i] = a + (b - a) * frac; }
+  }
+  return out;
+}
+function timeStretchBuf(ctx: BaseAudioContext, buf: AudioBuffer, stretch: number): AudioBuffer {
+  if (Math.abs(stretch - 1) < 1e-3) return buf;
+  const nch = buf.numberOfChannels, sr = buf.sampleRate;
+  const grain = Math.max(256, Math.floor(0.06 * sr)), hopOut = Math.floor(grain / 2), hopIn = Math.max(1, Math.floor(hopOut / stretch));
+  const outLen = Math.max(1, Math.floor(buf.length * stretch) + grain);
+  const out = ctx.createBuffer(nch, outLen, sr);
+  for (let ch = 0; ch < nch; ch++) {
+    const ib = buf.getChannelData(ch), ob = out.getChannelData(ch);
+    let ip = 0, op = 0;
+    while (op + grain < outLen && ip + grain < buf.length) {
+      for (let i = 0; i < grain; i++) { const wnd = 0.5 - 0.5 * Math.cos((2 * Math.PI * i) / grain); ob[op + i] += ib[ip + i] * wnd; }
+      op += hopOut; ip += hopIn;
+    }
+  }
+  return out;
+}
+// independent pitch shift (semitones), preserves duration
+function pitchShiftBuf(ctx: BaseAudioContext, buf: AudioBuffer, semitones: number): AudioBuffer {
+  if (!semitones) return buf;
+  const f = Math.pow(2, semitones / 12);
+  return timeStretchBuf(ctx, resampleBuf(ctx, buf, f), f);
+}
+async function renderArrangement(clips: AClip[]): Promise<AudioBuffer | null> {
+  if (!clips.length) return null;
+  const sr = 44100;
+  const total = clips.reduce((s, c) => s + (c.end - c.start) / c.speed, 0);
+  const len = Math.max(1, Math.ceil(total * sr) + sr);
+  const OAC = (window.OfflineAudioContext || (window as any).webkitOfflineAudioContext);
+  const off: OfflineAudioContext = new OAC(2, len, sr);
+  let t = 0;
+  for (const c of clips) {
+    const slice = sliceBuffer(off, c.buffer, c.start, c.end);
+    const eff = c.pitch ? pitchShiftBuf(off, slice, c.pitch) : slice;
+    const src = off.createBufferSource(); src.buffer = eff; src.playbackRate.value = c.speed;
+    const bass = off.createBiquadFilter(); bass.type = 'lowshelf'; bass.frequency.value = 220; bass.gain.value = c.bass;
+    const g = off.createGain();
+    const dur = eff.duration / c.speed;
+    const v = c.volume, endT = t + dur;
+    g.gain.setValueAtTime(c.fadeIn > 0 ? 0.0001 : v, t);
+    if (c.fadeIn > 0) g.gain.linearRampToValueAtTime(v, t + Math.min(c.fadeIn, dur));
+    if (c.fadeOut > 0) { g.gain.setValueAtTime(v, Math.max(t, endT - c.fadeOut)); g.gain.linearRampToValueAtTime(0.0001, endT); }
+    src.connect(bass); bass.connect(g); g.connect(off.destination); src.start(t);
+    t += dur;
+  }
+  return await off.startRendering();
+}
+function encodeWAV(buf: AudioBuffer): Blob {
+  const nch = Math.min(2, buf.numberOfChannels), sr = buf.sampleRate, n = buf.length;
+  const bytes = 44 + n * nch * 2;
+  const ab = new ArrayBuffer(bytes); const view = new DataView(ab);
+  const wr = (o: number, s: string) => { for (let i = 0; i < s.length; i++) view.setUint8(o + i, s.charCodeAt(i)); };
+  wr(0, 'RIFF'); view.setUint32(4, bytes - 8, true); wr(8, 'WAVE'); wr(12, 'fmt '); view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true); view.setUint16(22, nch, true); view.setUint32(24, sr, true); view.setUint32(28, sr * nch * 2, true);
+  view.setUint16(32, nch * 2, true); view.setUint16(34, 16, true); wr(36, 'data'); view.setUint32(40, n * nch * 2, true);
+  let off = 44;
+  const chans = []; for (let ch = 0; ch < nch; ch++) chans.push(buf.getChannelData(ch));
+  for (let i = 0; i < n; i++) for (let ch = 0; ch < nch; ch++) { let s = Math.max(-1, Math.min(1, chans[ch][i])); view.setInt16(off, s < 0 ? s * 0x8000 : s * 0x7fff, true); off += 2; }
+  return new Blob([ab], { type: 'audio/wav' });
+}
+// synthesized, dependency-free sound-effects library
+const SFX_KINDS = ['Beep', 'Click', 'Pop', 'Whoosh', 'Chime', 'Kick'];
+function makeSfx(ctx: BaseAudioContext, kind: string): AudioBuffer {
+  const sr = ctx.sampleRate;
+  const dur = kind === 'Click' ? 0.04 : kind === 'Chime' ? 0.6 : kind === 'Whoosh' ? 0.45 : 0.22;
+  const n = Math.floor(dur * sr); const out = ctx.createBuffer(1, n, sr); const d = out.getChannelData(0);
+  for (let i = 0; i < n; i++) {
+    const x = i / sr, p = i / n, env = Math.exp(-4 * p);
+    let s = 0;
+    if (kind === 'Beep') s = Math.sin(2 * Math.PI * 880 * x) * env;
+    else if (kind === 'Click') s = (Math.random() * 2 - 1) * Math.exp(-30 * p);
+    else if (kind === 'Pop') s = Math.sin(2 * Math.PI * (600 - 450 * p) * x) * env;
+    else if (kind === 'Whoosh') s = (Math.random() * 2 - 1) * Math.sin(Math.PI * p) * 0.7;
+    else if (kind === 'Chime') s = (Math.sin(2 * Math.PI * 1046 * x) + 0.6 * Math.sin(2 * Math.PI * 1568 * x)) * env * 0.5;
+    else if (kind === 'Kick') s = Math.sin(2 * Math.PI * (120 - 75 * p) * x) * Math.exp(-6 * p);
+    d[i] = s * 0.8;
+  }
+  return out;
+}
+const CLIP_COLORS = ['#C8553D', '#E8A33D', '#5C8A5A', '#3D7EA6', '#7B5EA7', '#C86B98'];
+
+// The audio editor — cut into clips, tune each, mix a sound library, export WAV.
+function AudioEditor({ name, srcDataUrl, theme, onClose }: { name: string; srcDataUrl?: string; theme: string; onClose: () => void }) {
+  const [clips, setClips] = useState<AClip[]>([]);
+  const [selId, setSelId] = useState<string | null>(null);
+  const [tool, setTool] = useState<'select' | 'cut'>('select');
+  const [loading, setLoading] = useState(!!srcDataUrl);
+  const [playing, setPlaying] = useState(false);
+  const [playPos, setPlayPos] = useState(0); // 0..1
+  const [imported, setImported] = useState<{ name: string; buffer: AudioBuffer }[]>([]);
+  const acRef = useRef<AudioContext | null>(null);
+  const srcNodeRef = useRef<AudioBufferSourceNode | null>(null);
+  const rafRef = useRef<number | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const impRef = useRef<HTMLInputElement>(null);
+
+  const ac = () => { if (!acRef.current) { const AC = (window.AudioContext || (window as any).webkitAudioContext); acRef.current = new AC(); } return acRef.current!; };
+  const sel = clips.find(c => c.id === selId) || null;
+  const totalDur = clips.reduce((s, c) => s + (c.end - c.start) / c.speed, 0);
+  const nextColor = () => CLIP_COLORS[clips.length % CLIP_COLORS.length];
+
+  // decode the opened file
+  useEffect(() => {
+    let dead = false;
+    if (!srcDataUrl) return;
+    (async () => {
+      try {
+        const ab = await (await fetch(srcDataUrl)).arrayBuffer();
+        const buffer = await ac().decodeAudioData(ab);
+        if (dead) return;
+        setClips([{ id: lid(), name: baseName(name), buffer, start: 0, end: buffer.duration, volume: 1, speed: 1, pitch: 0, bass: 0, fadeIn: 0, fadeOut: 0, color: CLIP_COLORS[0] }]);
+      } catch { /* unsupported */ }
+      if (!dead) setLoading(false);
+    })();
+    return () => { dead = true; };
+  }, [srcDataUrl]);
+
+  // draw the waveform whenever clips/selection change or on resize
+  useEffect(() => {
+    const draw = () => {
+      const cv = canvasRef.current, wrap = wrapRef.current; if (!cv || !wrap) return;
+      const W = wrap.clientWidth, H = 170; const dpr = window.devicePixelRatio || 1;
+      cv.width = W * dpr; cv.height = H * dpr; cv.style.width = W + 'px'; cv.style.height = H + 'px';
+      const g = cv.getContext('2d')!; g.scale(dpr, dpr); g.clearRect(0, 0, W, H);
+      const mid = H / 2;
+      if (!clips.length) return;
+      let x = 0;
+      for (const c of clips) {
+        const dur = (c.end - c.start) / c.speed; const cw = Math.max(2, (dur / totalDur) * W);
+        g.fillStyle = c.id === selId ? (theme === 'dark' ? 'rgba(200,85,61,0.22)' : 'rgba(200,85,61,0.14)') : 'transparent';
+        g.fillRect(x, 0, cw, H);
+        // waveform peaks
+        const data = c.buffer.getChannelData(0); const s0 = Math.floor(c.start * c.buffer.sampleRate), s1 = Math.floor(c.end * c.buffer.sampleRate);
+        const span = Math.max(1, s1 - s0); const step = Math.max(1, Math.floor(span / cw));
+        g.strokeStyle = c.color; g.globalAlpha = 0.9; g.beginPath();
+        for (let px = 0; px < cw; px++) {
+          let mn = 1, mx = -1; const a = s0 + Math.floor((px / cw) * span);
+          for (let k = 0; k < step; k++) { const v = data[a + k] || 0; if (v < mn) mn = v; if (v > mx) mx = v; }
+          g.moveTo(x + px, mid + mn * mid * 0.9); g.lineTo(x + px, mid + mx * mid * 0.9);
+        }
+        g.stroke(); g.globalAlpha = 1;
+        // divider
+        g.strokeStyle = theme === 'dark' ? '#2b2620' : '#d8ccb6'; g.beginPath(); g.moveTo(x, 0); g.lineTo(x, H); g.stroke();
+        x += cw;
+      }
+    };
+    draw();
+    window.addEventListener('resize', draw);
+    return () => window.removeEventListener('resize', draw);
+  }, [clips, selId, theme, totalDur]);
+
+  const stop = () => { try { srcNodeRef.current?.stop(); } catch { /* already */ } srcNodeRef.current = null; if (rafRef.current) cancelAnimationFrame(rafRef.current); setPlaying(false); setPlayPos(0); };
+  const play = async () => {
+    if (playing) { stop(); return; }
+    const rendered = await renderArrangement(clips); if (!rendered) return;
+    const ctx = ac(); if (ctx.state === 'suspended') await ctx.resume();
+    const node = ctx.createBufferSource(); node.buffer = rendered; node.connect(ctx.destination);
+    const startT = ctx.currentTime; node.start(); srcNodeRef.current = node; setPlaying(true);
+    node.onended = () => { srcNodeRef.current = null; setPlaying(false); setPlayPos(0); if (rafRef.current) cancelAnimationFrame(rafRef.current); };
+    const tick = () => { const el = ctx.currentTime - startT; setPlayPos(Math.min(1, el / rendered.duration)); if (srcNodeRef.current) rafRef.current = requestAnimationFrame(tick); };
+    tick();
+  };
+  useEffect(() => () => { try { srcNodeRef.current?.stop(); } catch { /* */ } if (rafRef.current) cancelAnimationFrame(rafRef.current); }, []);
+
+  const onCanvasDown = (e: React.PointerEvent) => {
+    const cv = canvasRef.current; if (!cv || !clips.length) return;
+    const rect = cv.getBoundingClientRect(); const x = e.clientX - rect.left; const W = rect.width;
+    // find clip under x
+    let acc = 0, hit: AClip | null = null, hitLeft = 0, hitW = 0;
+    for (const c of clips) { const cw = ((c.end - c.start) / c.speed / totalDur) * W; if (x >= acc && x <= acc + cw) { hit = c; hitLeft = acc; hitW = cw; break; } acc += cw; }
+    if (!hit) return;
+    if (tool === 'select') { setSelId(hit.id); return; }
+    // cut: split the clip at the clicked time
+    const frac = (x - hitLeft) / hitW; const cutTime = hit.start + frac * (hit.end - hit.start);
+    if (cutTime <= hit.start + 0.01 || cutTime >= hit.end - 0.01) return;
+    setClips(list => {
+      const i = list.findIndex(c => c.id === hit!.id); if (i < 0) return list;
+      const a = { ...hit!, end: cutTime };
+      const b = { ...hit!, id: lid(), start: cutTime, fadeIn: 0, color: CLIP_COLORS[(i + 1) % CLIP_COLORS.length] };
+      const arr = [...list]; arr.splice(i, 1, a, b); return arr;
+    });
+  };
+
+  const updateSel = (patch: Partial<AClip>) => { if (!selId) return; setClips(list => list.map(c => c.id === selId ? { ...c, ...patch } : c)); };
+  const removeSel = () => { if (!selId) return; setClips(list => list.filter(c => c.id !== selId)); setSelId(null); };
+
+  const addClipBuffer = (buffer: AudioBuffer, nm: string) => { const c: AClip = { id: lid(), name: nm, buffer, start: 0, end: buffer.duration, volume: 1, speed: 1, pitch: 0, bass: 0, fadeIn: 0, fadeOut: 0, color: nextColor() }; setClips(list => [...list, c]); setSelId(c.id); };
+  const addSfx = (kind: string) => addClipBuffer(makeSfx(ac(), kind), kind);
+  const onImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0]; if (!f) return;
+    const reader = new FileReader();
+    reader.onload = async () => { try { const ab = reader.result as ArrayBuffer; const buffer = await ac().decodeAudioData(ab.slice(0)); setImported(list => [{ name: baseName(f.name), buffer }, ...list].slice(0, 20)); addClipBuffer(buffer, baseName(f.name)); } catch { /* unsupported */ } };
+    reader.readAsArrayBuffer(f); e.target.value = '';
+  };
+  const exportWav = async () => { const r = await renderArrangement(clips); if (r) downloadBlob(encodeWAV(r), `${baseName(name)}.wav`); };
+
+  const fmtT = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+  const panelBg = theme === 'dark' ? '#17150F' : '#F3EBDD';
+  const Slider = ({ label, value, min, max, step, onChange, fmt }: { label: string; value: number; min: number; max: number; step: number; onChange: (n: number) => void; fmt: (n: number) => string }) => (
+    <div>
+      <div className="flex items-center justify-between text-xs text-ink-muted mb-1"><span>{label}</span><span>{fmt(value)}</span></div>
+      <input type="range" min={min} max={max} step={step} value={value} onChange={e => onChange(Number(e.target.value))} className="w-full accent-terra" />
+    </div>
+  );
+
+  return (
+    <div className="fixed inset-0 z-40 bg-cream animate-fade-in flex flex-col" style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
+      <div className="flex items-center gap-1.5 px-3 sm:px-4 py-2 border-b border-cream-dark shrink-0 flex-wrap">
+        <button onClick={onClose} className="flex items-center gap-1 text-sm text-terra mr-1"><ChevronLeft size={16} /> Files</button>
+        <span className="text-sm text-ink-muted mr-2 truncate max-w-[24vw] hidden sm:block">{name}</span>
+        <div className="w-px h-6 bg-cream-dark mx-1" />
+        <button onClick={() => setTool('select')} title="Select" className={`w-9 h-9 rounded-lg flex items-center justify-center transition-colors ${tool === 'select' ? 'bg-terra text-cream' : 'text-ink-muted hover:text-ink hover:bg-card'}`}><MousePointerClick size={17} strokeWidth={1.9} /></button>
+        <button onClick={() => setTool('cut')} title="Cut into clips" className={`w-9 h-9 rounded-lg flex items-center justify-center transition-colors ${tool === 'cut' ? 'bg-terra text-cream' : 'text-ink-muted hover:text-ink hover:bg-card'}`}><Scissors size={16} strokeWidth={1.9} /></button>
+        <div className="w-px h-6 bg-cream-dark mx-1" />
+        <button onClick={play} disabled={!clips.length} title="Play / stop" className="w-9 h-9 rounded-lg flex items-center justify-center bg-ink text-cream hover:bg-terra transition-colors disabled:opacity-40">{playing ? <Pause size={16} /> : <Play size={16} />}</button>
+        <span className="text-xs text-ink-muted ml-1 tabular-nums">{fmtT(totalDur)}</span>
+        <div className="flex-1" />
+        <button onClick={exportWav} disabled={!clips.length} className="flex items-center gap-1.5 bg-ink text-cream rounded-full px-3 py-1.5 text-sm hover:bg-terra transition-colors disabled:opacity-40"><Download size={14} strokeWidth={2} /> WAV</button>
+        <button onClick={onClose} className="text-ink-muted hover:text-ink p-1.5" aria-label="Close"><X size={20} /></button>
+      </div>
+
+      <div className="flex-1 flex flex-col sm:flex-row min-h-0">
+        <div className="flex-1 min-h-0 overflow-auto p-4 sm:p-6" style={{ background: theme === 'dark' ? '#0F0D0A' : '#E7DECB' }}>
+          {loading ? (
+            <div className="h-full flex items-center justify-center text-ink-muted">Decoding audio…</div>
+          ) : !clips.length ? (
+            <div className="h-full flex flex-col items-center justify-center text-center">
+              <Music size={30} className="text-terra mb-3" strokeWidth={1.5} />
+              <p className="font-display text-2xl italic text-ink-muted">No sound yet</p>
+              <p className="text-sm text-ink-muted mt-1">Add a sound effect or import audio from the panel.</p>
+            </div>
+          ) : (
+            <div ref={wrapRef} className="relative bg-card rounded-2xl border border-cream-dark p-2" style={{ cursor: tool === 'cut' ? 'col-resize' : 'default' }}>
+              <canvas ref={canvasRef} onPointerDown={onCanvasDown} className="w-full block rounded-xl" />
+              <div className="absolute top-2 bottom-2 w-0.5 bg-ink pointer-events-none" style={{ left: `calc(0.5rem + ${playPos * 100}% - ${playPos * 1}rem)`, opacity: playing ? 0.8 : 0 }} />
+              <div className="flex items-center justify-between mt-2 px-1 text-[11px] text-ink-muted">
+                <span>{clips.length} clip{clips.length === 1 ? '' : 's'}</span>
+                <span>{tool === 'cut' ? 'Tap the wave to split' : 'Tap a clip to edit it'}</span>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="w-full sm:w-72 shrink-0 border-t sm:border-t-0 sm:border-l border-cream-dark overflow-y-auto" style={{ background: panelBg }}>
+          {sel ? (
+            <div className="p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 min-w-0"><span className="w-3 h-3 rounded-full shrink-0" style={{ background: sel.color }} /><span className="text-sm font-medium text-ink truncate">{sel.name}</span></div>
+                <button onClick={removeSel} title="Delete clip" className="p-1.5 rounded-lg text-ink-muted hover:text-terra hover:bg-card"><Trash2 size={15} /></button>
+              </div>
+              <div className="text-[11px] text-ink-muted">{((sel.end - sel.start) / sel.speed).toFixed(2)}s</div>
+              <Slider label="Volume" value={sel.volume} min={0} max={1.5} step={0.01} onChange={n => updateSel({ volume: n })} fmt={n => Math.round(n * 100) + '%'} />
+              <Slider label="Speed (tape — moves pitch)" value={sel.speed} min={0.5} max={2} step={0.01} onChange={n => updateSel({ speed: n })} fmt={n => n.toFixed(2) + '×'} />
+              <Slider label="Pitch" value={sel.pitch} min={-12} max={12} step={1} onChange={n => updateSel({ pitch: n })} fmt={n => (n > 0 ? '+' : '') + n + ' st'} />
+              <Slider label="Bass" value={sel.bass} min={-20} max={20} step={1} onChange={n => updateSel({ bass: n })} fmt={n => (n > 0 ? '+' : '') + n + ' dB'} />
+              <Slider label="Fade in" value={sel.fadeIn} min={0} max={2} step={0.05} onChange={n => updateSel({ fadeIn: n })} fmt={n => n.toFixed(2) + 's'} />
+              <Slider label="Fade out" value={sel.fadeOut} min={0} max={2} step={0.05} onChange={n => updateSel({ fadeOut: n })} fmt={n => n.toFixed(2) + 's'} />
+              <button onClick={() => { setSelId(null); }} className="w-full py-2 rounded-full border border-cream-dark text-ink-muted text-sm hover:border-terra transition-colors">Done</button>
+            </div>
+          ) : (
+            <div className="p-4 space-y-4">
+              <div>
+                <div className="text-xs uppercase tracking-wider text-ink-muted mb-2">Sound library</div>
+                <div className="grid grid-cols-2 gap-2">
+                  {SFX_KINDS.map(k => (
+                    <button key={k} onClick={() => addSfx(k)} className="flex items-center gap-2 rounded-xl border-2 border-cream-dark py-2.5 px-3 text-sm font-medium text-ink hover:border-terra transition-colors"><Volume2 size={14} className="text-terra" /> {k}</button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <div className="text-xs uppercase tracking-wider text-ink-muted">Your sounds</div>
+                  <button onClick={() => impRef.current?.click()} className="flex items-center gap-1 text-sm text-terra"><Plus size={14} /> Import</button>
+                </div>
+                <input ref={impRef} type="file" accept="audio/*" onChange={onImport} className="hidden" />
+                {imported.length === 0 ? (
+                  <p className="text-xs text-ink-muted">Import a clip to reuse it here this session.</p>
+                ) : (
+                  <div className="space-y-1.5">
+                    {imported.map((s, i) => (
+                      <button key={i} onClick={() => addClipBuffer(s.buffer, s.name)} className="w-full flex items-center gap-2 bg-card border border-cream-dark rounded-xl px-3 py-2 text-left hover:border-terra transition-colors"><Music size={14} className="text-terra shrink-0" /><span className="text-sm text-ink truncate">{s.name}</span></button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <p className="text-xs text-ink-muted leading-relaxed pt-2 border-t border-cream-dark">Add sounds, then use the scissors to cut the wave into clips. Tap a clip to tune its volume, speed, pitch, bass and fades. Export mixes everything to a WAV.</p>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============ VIDEO EDITOR ============
+interface VText { id: string; text: string; x: number; y: number; size: number; color: string; bg: boolean; start: number; end: number }
+interface Keep { id: string; start: number; end: number }
+const VFX = ['none', 'vivid', 'warm', 'cool', 'grayscale', 'sepia', 'vintage', 'noir', 'vignette'] as const;
+type Vfx = typeof VFX[number];
+const TEXT_PRESETS: { label: string; patch: Partial<VText> }[] = [
+  { label: 'Caption', patch: { y: 0.88, size: 0.06, color: '#ffffff', bg: true } },
+  { label: 'Title', patch: { y: 0.16, size: 0.11, color: '#ffffff', bg: false } },
+  { label: 'Lower third', patch: { x: 0.04, y: 0.8, size: 0.05, color: '#ffffff', bg: true } },
+  { label: 'Bold center', patch: { y: 0.5, size: 0.13, color: '#ffffff', bg: false } },
+];
+
+// Easy video editor — trim, cut, text, colour, effects & audio; exports WebM in-browser.
+function VideoEditor({ name, srcUrl, theme, onClose }: { name: string; srcUrl: string; theme: string; onClose: () => void }) {
+  const [ready, setReady] = useState(false);
+  const [dur, setDur] = useState(0);
+  const [cur, setCur] = useState(0);
+  const [playing, setPlaying] = useState(false);
+  const [keep, setKeep] = useState<Keep[]>([]);
+  const [texts, setTexts] = useState<VText[]>([]);
+  const [selText, setSelText] = useState<string | null>(null);
+  const [adjust, setAdjust] = useState({ bright: 1, contrast: 1, sat: 1, blur: 0 });
+  const [effect, setEffect] = useState<Vfx>('none');
+  const [volume, setVolume] = useState(1);
+  const [muted, setMuted] = useState(false);
+  const [tab, setTab] = useState<'trim' | 'text' | 'adjust' | 'fx' | 'audio'>('trim');
+  const [exporting, setExporting] = useState(false);
+  const [exportPct, setExportPct] = useState(0);
+  const [msg, setMsg] = useState('');
+
+  const vidRef = useRef<HTMLVideoElement | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const rafRef = useRef<number | null>(null);
+  const segRef = useRef(0);
+  const barRef = useRef<HTMLDivElement | null>(null);
+  const drag = useRef<any>(null);
+  const acRef = useRef<AudioContext | null>(null);
+  const gainRef = useRef<GainNode | null>(null);
+  const tappedRef = useRef(false);
+  const recRef = useRef<MediaRecorder | null>(null);
+  const onEndRef = useRef<null | (() => void)>(null);
+  const exportingRef = useRef(false);
+
+  const keptDur = keep.reduce((s, k) => s + (k.end - k.start), 0);
+  const sel = texts.find(t => t.id === selText) || null;
+  const panelBg = theme === 'dark' ? '#17150F' : '#F3EBDD';
+
+  const filterCss = () => {
+    let f = `brightness(${adjust.bright}) contrast(${adjust.contrast}) saturate(${adjust.sat})`;
+    if (adjust.blur > 0) f += ` blur(${adjust.blur}px)`;
+    if (effect === 'grayscale' || effect === 'noir') f += ' grayscale(1)';
+    if (effect === 'sepia') f += ' sepia(0.7)';
+    if (effect === 'vintage') f += ' sepia(0.4) contrast(1.08)';
+    if (effect === 'vivid') f += ' saturate(1.5) contrast(1.08)';
+    if (effect === 'noir') f += ' contrast(1.25)';
+    return f;
+  };
+
+  // one draw of the current frame + overlays
+  const composite = () => {
+    const v = vidRef.current, cv = canvasRef.current; if (!v || !cv) return;
+    const g = cv.getContext('2d'); if (!g) return;
+    g.filter = filterCss();
+    g.drawImage(v, 0, 0, cv.width, cv.height);
+    g.filter = 'none';
+    if (effect === 'warm') { g.fillStyle = 'rgba(255,150,40,0.14)'; g.fillRect(0, 0, cv.width, cv.height); }
+    if (effect === 'cool') { g.fillStyle = 'rgba(40,120,255,0.14)'; g.fillRect(0, 0, cv.width, cv.height); }
+    if (effect === 'vintage' || effect === 'noir' || effect === 'vignette') {
+      const cx = cv.width / 2, cy = cv.height / 2, r = Math.max(cx, cy);
+      const grd = g.createRadialGradient(cx, cy, r * 0.55, cx, cy, r);
+      grd.addColorStop(0, 'rgba(0,0,0,0)'); grd.addColorStop(1, 'rgba(0,0,0,0.5)');
+      g.fillStyle = grd; g.fillRect(0, 0, cv.width, cv.height);
+    }
+    const t = v.currentTime;
+    for (const tx of texts) {
+      if (t < tx.start || t > tx.end) continue;
+      const fpx = tx.size * cv.height; g.font = `700 ${fpx}px sans-serif`; g.textBaseline = 'middle';
+      const tw = g.measureText(tx.text).width; const px = tx.x * cv.width, py = tx.y * cv.height;
+      const anchorX = tx.x <= 0.06 ? px : px - tw / 2;
+      if (tx.bg) { g.fillStyle = 'rgba(0,0,0,0.5)'; const pad = fpx * 0.3; g.fillRect(anchorX - pad, py - fpx / 2 - pad, tw + pad * 2, fpx + pad * 2); }
+      g.fillStyle = tx.color; g.fillText(tx.text, anchorX, py);
+    }
+  };
+
+  // main loop: draw + enforce kept-segment playback
+  useEffect(() => {
+    const loop = () => {
+      const v = vidRef.current;
+      if (v && ready) {
+        composite();
+        if (!v.paused && keep.length) {
+          const seg = keep[segRef.current] || keep[keep.length - 1];
+          if (v.currentTime >= seg.end - 0.02) {
+            if (segRef.current < keep.length - 1) { segRef.current++; v.currentTime = keep[segRef.current].start; }
+            else { v.pause(); setPlaying(false); const cb = onEndRef.current; onEndRef.current = null; if (cb) cb(); }
+          }
+          setCur(v.currentTime);
+        }
+      }
+      rafRef.current = requestAnimationFrame(loop);
+    };
+    rafRef.current = requestAnimationFrame(loop);
+    return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); };
+  }, [ready, keep, texts, adjust, effect]);
+
+  // preview volume (until the audio graph is tapped for export)
+  useEffect(() => { const v = vidRef.current; if (!v) return; if (tappedRef.current && gainRef.current) gainRef.current.gain.value = muted ? 0 : volume; else { v.volume = volume; v.muted = muted; } }, [volume, muted]);
+
+  const onLoaded = () => {
+    const v = vidRef.current; if (!v) return;
+    const d = v.duration || 0; setDur(d); setKeep([{ id: lid(), start: 0, end: d }]);
+    const cv = canvasRef.current!;
+    const scale = Math.min(1, 1280 / (v.videoWidth || 1280));
+    cv.width = Math.round((v.videoWidth || 1280) * scale); cv.height = Math.round((v.videoHeight || 720) * scale);
+    v.volume = volume; setReady(true); setTimeout(composite, 50);
+  };
+
+  const play = () => {
+    const v = vidRef.current; if (!v || !keep.length) return;
+    if (playing) { v.pause(); setPlaying(false); return; }
+    let idx = keep.findIndex(k => v.currentTime >= k.start && v.currentTime < k.end);
+    if (idx < 0) { idx = 0; v.currentTime = keep[0].start; }
+    segRef.current = idx; v.play(); setPlaying(true);
+  };
+
+  const seekTo = (t: number) => { const v = vidRef.current; if (!v) return; v.currentTime = Math.max(0, Math.min(dur, t)); segRef.current = Math.max(0, keep.findIndex(k => t >= k.start && t <= k.end)); setCur(v.currentTime); setTimeout(composite, 30); };
+
+  const barXtoT = (clientX: number) => { const r = barRef.current!.getBoundingClientRect(); return Math.max(0, Math.min(1, (clientX - r.left) / r.width)) * dur; };
+  const onBarDown = (e: React.PointerEvent) => { if (drag.current) return; seekTo(barXtoT(e.clientX)); };
+  const startTrim = (e: React.PointerEvent, side: 'l' | 'r') => { e.stopPropagation(); drag.current = { side }; };
+  useEffect(() => {
+    const move = (e: PointerEvent) => { if (!drag.current) return; const t = barXtoT(e.clientX); setKeep(ks => { const arr = [...ks]; if (drag.current.side === 'l') arr[0] = { ...arr[0], start: Math.min(t, arr[0].end - 0.1) }; else arr[arr.length - 1] = { ...arr[arr.length - 1], end: Math.max(t, arr[arr.length - 1].start + 0.1) }; return arr; }); };
+    const up = () => { drag.current = null; };
+    window.addEventListener('pointermove', move); window.addEventListener('pointerup', up);
+    return () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); };
+  }, [dur]);
+
+  const splitAt = () => { const t = cur; setKeep(ks => { const i = ks.findIndex(k => t > k.start + 0.05 && t < k.end - 0.05); if (i < 0) return ks; const a = { ...ks[i], end: t }, b = { id: lid(), start: t, end: ks[i].end }; const arr = [...ks]; arr.splice(i, 1, a, b); return arr; }); };
+  const deleteSeg = () => { const t = cur; setKeep(ks => { if (ks.length <= 1) return ks; const i = ks.findIndex(k => t >= k.start && t <= k.end); if (i < 0) return ks; return ks.filter((_, j) => j !== i); }); };
+
+  const addText = (preset?: Partial<VText>) => { const tx: VText = { id: lid(), text: 'Your text', x: 0.5, y: 0.85, size: 0.06, color: '#ffffff', bg: true, start: 0, end: dur, ...preset }; setTexts(list => [...list, tx]); setSelText(tx.id); setTab('text'); };
+  const updateText = (patch: Partial<VText>) => { if (!selText) return; setTexts(list => list.map(t => t.id === selText ? { ...t, ...patch } : t)); };
+  const delText = () => { if (!selText) return; setTexts(list => list.filter(t => t.id !== selText)); setSelText(null); };
+
+  const ensureGraph = () => {
+    const v = vidRef.current!; if (!acRef.current) { const AC = (window.AudioContext || (window as any).webkitAudioContext); acRef.current = new AC(); }
+    const ac = acRef.current!;
+    if (!tappedRef.current) { const src = ac.createMediaElementSource(v); const g = ac.createGain(); g.gain.value = muted ? 0 : volume; const dest = ac.createMediaStreamDestination(); src.connect(g); g.connect(ac.destination); g.connect(dest); gainRef.current = g; (ensureGraph as any)._dest = dest; tappedRef.current = true; }
+    return { ac, dest: (ensureGraph as any)._dest as MediaStreamAudioDestinationNode };
+  };
+
+  const pickMime = () => ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm', 'video/mp4'].find(m => (window as any).MediaRecorder && MediaRecorder.isTypeSupported(m)) || '';
+
+  const exportVideo = async () => {
+    const cv = canvasRef.current, v = vidRef.current; if (!cv || !v || !keep.length) return;
+    if (typeof MediaRecorder === 'undefined' || !(cv as any).captureStream) { setMsg("This device can't export video in-app — try on desktop."); return; }
+    const mime = pickMime(); if (!mime) { setMsg('No supported video recorder on this device.'); return; }
+    let dest: MediaStreamAudioDestinationNode | null = null;
+    try { const g = ensureGraph(); dest = g.dest; if (g.ac.state === 'suspended') await g.ac.resume(); } catch { dest = null; }
+    const vstream = (cv as any).captureStream(30) as MediaStream;
+    const tracks = [...vstream.getVideoTracks()];
+    if (dest && !muted) tracks.push(...dest.stream.getAudioTracks());
+    const stream = new MediaStream(tracks);
+    const rec = new MediaRecorder(stream, { mimeType: mime }); recRef.current = rec;
+    const chunks: BlobPart[] = [];
+    rec.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
+    rec.onstop = () => { const ext = mime.includes('mp4') ? 'mp4' : 'webm'; downloadBlob(new Blob(chunks, { type: mime }), `${baseName(name)}.${ext}`); setExporting(false); setExportPct(0); };
+    setExporting(true); exportingRef.current = true; setMsg('');
+    segRef.current = 0; v.currentTime = keep[0].start; await v.play(); setPlaying(true); rec.start(100);
+    onEndRef.current = () => { try { rec.stop(); } catch { /* */ } };
+    // progress
+    const startKept = 0; const total = keptDur || 1;
+    const prog = () => {
+      if (!exportingRef.current) return;
+      let done = startKept; for (let i = 0; i < segRef.current; i++) done += (keep[i].end - keep[i].start);
+      done += Math.max(0, (v.currentTime - keep[Math.min(segRef.current, keep.length - 1)].start));
+      setExportPct(Math.min(100, Math.round((done / total) * 100)));
+      requestAnimationFrame(prog);
+    };
+    requestAnimationFrame(prog);
+  };
+  useEffect(() => { exportingRef.current = exporting; }, [exporting]);
+
+  const fmtT = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+  const Slider = ({ label, value, min, max, step, onChange, fmt }: { label: string; value: number; min: number; max: number; step: number; onChange: (n: number) => void; fmt: (n: number) => string }) => (
+    <div><div className="flex items-center justify-between text-xs text-ink-muted mb-1"><span>{label}</span><span>{fmt(value)}</span></div><input type="range" min={min} max={max} step={step} value={value} onChange={e => onChange(Number(e.target.value))} className="w-full accent-terra" /></div>
+  );
+  const TabBtn = ({ id, icon: Ic, label }: { id: typeof tab; icon: any; label: string }) => (
+    <button onClick={() => setTab(id)} className={`flex-1 flex flex-col items-center gap-1 py-2 rounded-xl text-[11px] font-medium transition-colors ${tab === id ? 'bg-terra text-cream' : 'text-ink-muted hover:text-ink hover:bg-card'}`}><Ic size={16} /> {label}</button>
+  );
+
+  return (
+    <div className="fixed inset-0 z-40 bg-cream animate-fade-in flex flex-col" style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
+      <div className="flex items-center gap-1.5 px-3 sm:px-4 py-2 border-b border-cream-dark shrink-0">
+        <button onClick={onClose} className="flex items-center gap-1 text-sm text-terra mr-1"><ChevronLeft size={16} /> Files</button>
+        <span className="text-sm text-ink-muted truncate max-w-[30vw] hidden sm:block">{name}</span>
+        <div className="flex-1" />
+        {exporting ? (
+          <span className="text-sm text-terra">Exporting… {exportPct}%</span>
+        ) : (
+          <button onClick={exportVideo} disabled={!ready} className="flex items-center gap-1.5 bg-ink text-cream rounded-full px-3 py-1.5 text-sm hover:bg-terra transition-colors disabled:opacity-40"><Download size={14} strokeWidth={2} /> Export</button>
+        )}
+        <button onClick={onClose} className="text-ink-muted hover:text-ink p-1.5" aria-label="Close"><X size={20} /></button>
+      </div>
+
+      <video ref={vidRef} src={srcUrl} onLoadedMetadata={onLoaded} playsInline crossOrigin="anonymous" className="hidden" />
+
+      <div className="flex-1 flex flex-col sm:flex-row min-h-0">
+        <div className="flex-1 min-h-0 flex flex-col p-3 sm:p-5" style={{ background: theme === 'dark' ? '#0F0D0A' : '#E7DECB' }}>
+          <div className="flex-1 min-h-0 flex items-center justify-center">
+            <canvas ref={canvasRef} className="max-w-full max-h-full rounded-xl shadow-2xl bg-black" style={{ objectFit: 'contain' }} />
+          </div>
+          {msg && <div className="mt-2 text-center text-sm text-terra">{msg}</div>}
+          {/* transport + timeline */}
+          <div className="mt-3">
+            <div className="flex items-center gap-3 mb-2">
+              <button onClick={play} disabled={!ready} className="w-10 h-10 rounded-full bg-ink text-cream flex items-center justify-center hover:bg-terra transition-colors disabled:opacity-40">{playing ? <Pause size={17} /> : <Play size={17} />}</button>
+              <span className="text-xs text-ink-muted tabular-nums">{fmtT(cur)} / {fmtT(dur)}</span>
+              <div className="flex-1" />
+              <span className="text-xs text-ink-muted">kept {fmtT(keptDur)}</span>
+            </div>
+            <div ref={barRef} onPointerDown={onBarDown} className="relative h-10 rounded-xl bg-card border border-cream-dark cursor-pointer select-none overflow-hidden">
+              {dur > 0 && keep.map(k => (
+                <div key={k.id} className="absolute top-0 bottom-0 bg-terra-light" style={{ left: `${(k.start / dur) * 100}%`, width: `${((k.end - k.start) / dur) * 100}%` }} />
+              ))}
+              {dur > 0 && keep.length > 0 && (<>
+                <div onPointerDown={e => startTrim(e, 'l')} className="absolute top-0 bottom-0 w-2.5 bg-terra rounded-l-xl cursor-ew-resize" style={{ left: `calc(${(keep[0].start / dur) * 100}% - 0px)` }} />
+                <div onPointerDown={e => startTrim(e, 'r')} className="absolute top-0 bottom-0 w-2.5 bg-terra rounded-r-xl cursor-ew-resize" style={{ left: `calc(${(keep[keep.length - 1].end / dur) * 100}% - 10px)` }} />
+              </>)}
+              <div className="absolute top-0 bottom-0 w-0.5 bg-ink pointer-events-none" style={{ left: `${(cur / dur) * 100}%` }} />
+            </div>
+          </div>
+        </div>
+
+        {/* side panel */}
+        <div className="w-full sm:w-72 shrink-0 border-t sm:border-t-0 sm:border-l border-cream-dark flex flex-col" style={{ background: panelBg }}>
+          <div className="flex gap-1 p-2 border-b border-cream-dark">
+            <TabBtn id="trim" icon={Scissors} label="Cut" />
+            <TabBtn id="text" icon={Type} label="Text" />
+            <TabBtn id="adjust" icon={SlidersHorizontal} label="Adjust" />
+            <TabBtn id="fx" icon={Wand2} label="Effects" />
+            <TabBtn id="audio" icon={Volume2} label="Audio" />
+          </div>
+          <div className="flex-1 overflow-y-auto p-4">
+            {tab === 'trim' && (
+              <div className="space-y-3">
+                <p className="text-sm text-ink-muted">Drag the orange handles to trim the ends. Move the playhead and split, then delete parts you don't want.</p>
+                <div className="grid grid-cols-2 gap-2">
+                  <button onClick={splitAt} className="flex items-center justify-center gap-1.5 rounded-xl border-2 border-cream-dark py-2.5 text-sm font-medium text-ink hover:border-terra transition-colors"><Scissors size={15} /> Split here</button>
+                  <button onClick={deleteSeg} disabled={keep.length <= 1} className="flex items-center justify-center gap-1.5 rounded-xl border-2 border-cream-dark py-2.5 text-sm font-medium text-ink hover:border-terra transition-colors disabled:opacity-40"><Trash2 size={15} /> Delete part</button>
+                </div>
+                <div className="text-xs text-ink-muted pt-2 border-t border-cream-dark">{keep.length} segment{keep.length === 1 ? '' : 's'} kept · {fmtT(keptDur)}</div>
+              </div>
+            )}
+            {tab === 'text' && (
+              <div className="space-y-3">
+                <button onClick={() => addText()} className="w-full flex items-center justify-center gap-1.5 bg-ink text-cream rounded-full py-2.5 text-sm hover:bg-terra transition-colors"><Plus size={15} /> Add text</button>
+                <div className="grid grid-cols-2 gap-2">
+                  {TEXT_PRESETS.map(p => <button key={p.label} onClick={() => addText(p.patch)} className="rounded-xl border-2 border-cream-dark py-2 text-xs font-medium text-ink hover:border-terra transition-colors">{p.label}</button>)}
+                </div>
+                {texts.length > 0 && (
+                  <div className="space-y-1 pt-2 border-t border-cream-dark">
+                    {texts.map(t => (
+                      <button key={t.id} onClick={() => setSelText(t.id)} className={`w-full text-left px-3 py-2 rounded-xl text-sm truncate transition-colors ${selText === t.id ? 'bg-terra-light text-terra-dark' : 'text-ink hover:bg-card'}`}>{t.text || '(empty)'}</button>
+                    ))}
+                  </div>
+                )}
+                {sel && (
+                  <div className="space-y-2 pt-2 border-t border-cream-dark">
+                    <textarea value={sel.text} onChange={e => updateText({ text: e.target.value })} rows={2} className="w-full bg-cream border border-cream-dark rounded-xl px-3 py-2 text-sm text-ink focus:outline-none focus:border-terra resize-none" />
+                    <div className="flex items-center gap-2">
+                      <label className="w-8 h-8 rounded-lg border-2 border-cream-dark overflow-hidden cursor-pointer shrink-0" style={{ background: sel.color }}><input type="color" value={sel.color} onChange={e => updateText({ color: e.target.value })} className="opacity-0 w-full h-full cursor-pointer" /></label>
+                      <button onClick={() => updateText({ bg: !sel.bg })} className={`px-3 py-1.5 rounded-lg text-xs font-medium ${sel.bg ? 'bg-terra text-cream' : 'text-ink-muted border border-cream-dark'}`}>Backing</button>
+                      <button onClick={delText} className="ml-auto p-1.5 rounded-lg text-ink-muted hover:text-terra"><Trash2 size={15} /></button>
+                    </div>
+                    <Slider label="Size" value={sel.size} min={0.03} max={0.2} step={0.005} onChange={n => updateText({ size: n })} fmt={n => Math.round(n * 100) + ''} />
+                    <Slider label="Across" value={sel.x} min={0} max={1} step={0.01} onChange={n => updateText({ x: n })} fmt={n => Math.round(n * 100) + '%'} />
+                    <Slider label="Down" value={sel.y} min={0} max={1} step={0.01} onChange={n => updateText({ y: n })} fmt={n => Math.round(n * 100) + '%'} />
+                    <Slider label="Show from" value={sel.start} min={0} max={dur} step={0.1} onChange={n => updateText({ start: Math.min(n, sel.end) })} fmt={fmtT} />
+                    <Slider label="Show until" value={sel.end} min={0} max={dur} step={0.1} onChange={n => updateText({ end: Math.max(n, sel.start) })} fmt={fmtT} />
+                  </div>
+                )}
+              </div>
+            )}
+            {tab === 'adjust' && (
+              <div className="space-y-3">
+                <Slider label="Brightness" value={adjust.bright} min={0} max={2} step={0.01} onChange={n => setAdjust(a => ({ ...a, bright: n }))} fmt={n => Math.round(n * 100) + '%'} />
+                <Slider label="Contrast" value={adjust.contrast} min={0} max={2} step={0.01} onChange={n => setAdjust(a => ({ ...a, contrast: n }))} fmt={n => Math.round(n * 100) + '%'} />
+                <Slider label="Saturation" value={adjust.sat} min={0} max={2} step={0.01} onChange={n => setAdjust(a => ({ ...a, sat: n }))} fmt={n => Math.round(n * 100) + '%'} />
+                <Slider label="Blur" value={adjust.blur} min={0} max={20} step={1} onChange={n => setAdjust(a => ({ ...a, blur: n }))} fmt={n => n + 'px'} />
+                <button onClick={() => setAdjust({ bright: 1, contrast: 1, sat: 1, blur: 0 })} className="w-full py-2 rounded-full border border-cream-dark text-ink-muted text-sm hover:border-terra transition-colors">Reset</button>
+              </div>
+            )}
+            {tab === 'fx' && (
+              <div className="grid grid-cols-2 gap-2">
+                {VFX.map(f => <button key={f} onClick={() => setEffect(f)} className={`rounded-xl border-2 py-3 text-sm font-medium capitalize transition-colors ${effect === f ? 'border-terra text-terra bg-terra-light' : 'border-cream-dark text-ink hover:border-terra'}`}>{f}</button>)}
+              </div>
+            )}
+            {tab === 'audio' && (
+              <div className="space-y-3">
+                <Slider label="Volume" value={volume} min={0} max={1.5} step={0.01} onChange={setVolume} fmt={n => Math.round(n * 100) + '%'} />
+                <button onClick={() => setMuted(m => !m)} className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border-2 text-sm font-medium transition-colors ${muted ? 'border-terra text-terra bg-terra-light' : 'border-cream-dark text-ink hover:border-terra'}`}>{muted ? <VolumeX size={15} /> : <Volume2 size={15} />} {muted ? 'Muted' : 'Mute'}</button>
+                <p className="text-xs text-ink-muted leading-relaxed pt-2 border-t border-cream-dark">Volume and mute apply to the exported file too.</p>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============ FILES: type detection + helpers ============
+type FileKind = 'text' | 'image' | 'audio' | 'video' | 'lull' | 'unknown';
+const FILE_KINDS: Record<string, FileKind> = {
+  txt: 'text', text: 'text', md: 'text', markdown: 'text', csv: 'text', tsv: 'text', json: 'text', log: 'text',
+  xml: 'text', yml: 'text', yaml: 'text', ini: 'text', html: 'text', htm: 'text', css: 'text', js: 'text', ts: 'text', jsx: 'text', tsx: 'text', py: 'text', rtf: 'text',
+  png: 'image', jpg: 'image', jpeg: 'image', webp: 'image', gif: 'image', bmp: 'image', svg: 'image',
+  mp3: 'audio', wav: 'audio', ogg: 'audio', m4a: 'audio', aac: 'audio', flac: 'audio',
+  mp4: 'video', webm: 'video', mov: 'video', mkv: 'video', avi: 'video', m4v: 'video',
+  lull: 'lull',
+};
+const extOf = (name: string) => (name.includes('.') ? name.split('.').pop()!.toLowerCase() : '');
+const baseName = (name: string) => (name.includes('.') ? name.slice(0, name.lastIndexOf('.')) : name);
+const fileKindOf = (name: string): FileKind => FILE_KINDS[extOf(name)] || 'unknown';
+
+const KIND_META: Record<FileKind, { label: string; icon: any; blurb: string }> = {
+  text: { label: 'Text', icon: FileText, blurb: 'Notes, markdown, code & data' },
+  image: { label: 'Photo', icon: ImageIcon, blurb: 'Layers you can re-edit · export .lull' },
+  audio: { label: 'Audio', icon: Music, blurb: 'Cut, mix & effects' },
+  video: { label: 'Video', icon: Film, blurb: 'Trim, text & effects' },
+  lull: { label: 'Lull design', icon: Sparkles, blurb: 'An editable Lull design file' },
+  unknown: { label: 'File', icon: FileText, blurb: 'Unrecognised type' },
+};
+
+function mimeForExt(ext: string): string {
+  const m: Record<string, string> = { txt: 'text/plain', md: 'text/markdown', markdown: 'text/markdown', html: 'text/html', htm: 'text/html', css: 'text/css', js: 'text/javascript', json: 'application/json', csv: 'text/csv', xml: 'application/xml', svg: 'image/svg+xml' };
+  return m[ext] || 'text/plain';
+}
+function downloadBlob(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+function downloadText(text: string, filename: string, mime = 'text/plain') {
+  downloadBlob(new Blob([text], { type: mime }), filename);
+}
+function htmlToText(html: string): string {
+  return html
+    .replace(/<\s*br\s*\/?>/gi, '\n')
+    .replace(/<\s*\/p\s*>/gi, '\n\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+    .replace(/\n{3,}/g, '\n\n').trim();
+}
+// Tiny, safe markdown → HTML (headings, bold, italic, code, links, lists, code fences).
+function mdToHtml(src: string): string {
+  const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const inline = (t: string) => esc(t)
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*([^*]+)\*/g, '<em>$1</em>')
+    .replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noreferrer">$1</a>');
+  let html = ''; let inList = false; let inCode = false;
+  for (const raw of src.split(/\r?\n/)) {
+    if (raw.trim().startsWith('```')) {
+      if (inCode) { html += '</code></pre>'; inCode = false; }
+      else { if (inList) { html += '</ul>'; inList = false; } html += '<pre><code>'; inCode = true; }
+      continue;
+    }
+    if (inCode) { html += esc(raw) + '\n'; continue; }
+    const h = raw.match(/^(#{1,6})\s+(.*)$/);
+    if (h) { if (inList) { html += '</ul>'; inList = false; } const n = h[1].length; html += `<h${n}>${inline(h[2])}</h${n}>`; continue; }
+    const li = raw.match(/^\s*[-*+]\s+(.*)$/);
+    if (li) { if (!inList) { html += '<ul>'; inList = true; } html += `<li>${inline(li[1])}</li>`; continue; }
+    if (inList) { html += '</ul>'; inList = false; }
+    if (raw.trim() === '') continue;
+    html += `<p>${inline(raw)}</p>`;
+  }
+  if (inList) html += '</ul>';
+  if (inCode) html += '</code></pre>';
+  return html;
+}
+
+type OpenDoc = { name: string; ext: string; content: string };
+type Recent = { name: string; kind: FileKind; content?: string };
+
+// The Files hub — recognises a file's type, opens the right editor, or converts formats.
+function FilesPanel({ theme, onClose }: { theme: string; onClose: () => void }) {
+  const [screen, setScreen] = useState<'home' | 'text' | 'photo' | 'audio' | 'video'>('home');
+  const [photo, setPhoto] = useState<{ name: string; doc: LullDoc } | null>(null);
+  const [audio, setAudio] = useState<{ name: string; src?: string } | null>(null);
+  const [video, setVideo] = useState<{ name: string; src: string } | null>(null);
+  const [pending, setPending] = useState<{ name: string; kind: FileKind; text?: string; dataUrl?: string } | null>(null);
+  const [convertMode, setConvertMode] = useState(false);
+  const [showNew, setShowNew] = useState(false);
+  const [recent, setRecent] = useState<Recent[]>([]);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  // text editor state
+  const [doc, setDoc] = useState<OpenDoc | null>(null);
+  const [dirty, setDirty] = useState(false);
+  const [fontSize, setFontSize] = useState(15);
+  const [wrap, setWrap] = useState(true);
+  const [showLines, setShowLines] = useState(false);
+  const [mono, setMono] = useState(false);
+  const [mdPreview, setMdPreview] = useState(false);
+  const [showFind, setShowFind] = useState(false);
+  const [find, setFind] = useState('');
+  const [replace, setReplace] = useState('');
+  const taRef = useRef<HTMLTextAreaElement>(null);
+  const gutRef = useRef<HTMLDivElement>(null);
+
+  const codeBg = theme === 'dark' ? '#17150F' : '#F3EBDD';
+
+  const pushRecent = (r: Recent) => setRecent(list => [r, ...list.filter(x => x.name !== r.name)].slice(0, 8));
+
+  const openText = (name: string, content: string) => {
+    const ext = extOf(name) || 'txt';
+    setDoc({ name, ext, content });
+    setDirty(false); setMdPreview(false); setShowFind(false); setFind(''); setReplace('');
+    setScreen('text');
+    pushRecent({ name, kind: 'text', content });
+  };
+
+  const openPhoto = (name: string, ld: LullDoc) => {
+    setPhoto({ name, doc: ld });
+    setScreen('photo');
+    pushRecent({ name, kind: 'lull', content: JSON.stringify(ld) });
+  };
+
+  const openAudio = (name: string, src?: string) => { setAudio({ name, src }); setScreen('audio'); };
+  const openVideo = (name: string, src: string) => { setVideo({ name, src }); setScreen('video'); };
+
+  const onPick = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    const kind = fileKindOf(f.name);
+    if (kind === 'video') { setPending({ name: f.name, kind, dataUrl: URL.createObjectURL(f) }); e.target.value = ''; return; }
+    const reader = new FileReader();
+    if (kind === 'text' || kind === 'lull') {
+      reader.onload = () => setPending({ name: f.name, kind, text: String(reader.result || '') });
+      reader.readAsText(f);
+    } else {
+      reader.onload = () => setPending({ name: f.name, kind, dataUrl: String(reader.result || '') });
+      reader.readAsDataURL(f);
+    }
+    e.target.value = '';
+  };
+
+  const editPending = () => {
+    if (!pending) return;
+    if (pending.kind === 'text') { openText(pending.name, pending.text || ''); setPending(null); setConvertMode(false); return; }
+    if (pending.kind === 'lull') {
+      try {
+        const parsed = JSON.parse(pending.text || '');
+        if (parsed && parsed.lull === 'image' && Array.isArray(parsed.elements)) { openPhoto(pending.name, parsed as LullDoc); setPending(null); setConvertMode(false); return; }
+      } catch { /* not a valid .lull */ }
+      return;
+    }
+    if (pending.kind === 'image' && pending.dataUrl) {
+      const src = pending.dataUrl; const name = pending.name;
+      const im = new Image();
+      im.onload = () => { openPhoto(baseName(name) + '.lull', imageLullDoc(src, im.naturalWidth || 1080, im.naturalHeight || 1080)); };
+      im.onerror = () => openPhoto(baseName(name) + '.lull', imageLullDoc(src, 1080, 1080));
+      im.src = src;
+      setPending(null); setConvertMode(false);
+      return;
+    }
+    if (pending.kind === 'audio' && pending.dataUrl) { openAudio(pending.name, pending.dataUrl); setPending(null); setConvertMode(false); return; }
+    if (pending.kind === 'video' && pending.dataUrl) { openVideo(pending.name, pending.dataUrl); setPending(null); setConvertMode(false); }
+  };
+
+  const convertText = (target: string) => {
+    if (!pending) return;
+    const src = pending.text || '';
+    const from = extOf(pending.name);
+    let out = src; let mime = mimeForExt(target);
+    if (target === 'html') {
+      out = `<!doctype html>\n<meta charset="utf-8">\n` + (from === 'md' || from === 'markdown' ? mdToHtml(src) : `<pre>${src.replace(/&/g, '&amp;').replace(/</g, '&lt;')}</pre>`);
+    } else {
+      out = (from === 'html' || from === 'htm') ? htmlToText(src) : src;
+    }
+    downloadText(out, `${baseName(pending.name)}.${target}`, mime);
+    setPending(null); setConvertMode(false);
+  };
+
+  const convertImage = (target: string) => {
+    if (!pending?.dataUrl) return;
+    const url = pending.dataUrl; const name = pending.name;
+    const img = new Image();
+    img.onload = () => {
+      const c = document.createElement('canvas');
+      c.width = img.naturalWidth; c.height = img.naturalHeight;
+      const ctx = c.getContext('2d'); if (!ctx) return;
+      if (target === 'jpg' || target === 'jpeg') { ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, c.width, c.height); }
+      ctx.drawImage(img, 0, 0);
+      const mime = target === 'png' ? 'image/png' : target === 'webp' ? 'image/webp' : 'image/jpeg';
+      c.toBlob(b => { if (b) downloadBlob(b, `${baseName(name)}.${target}`); }, mime, 0.92);
+    };
+    img.src = url;
+    setPending(null); setConvertMode(false);
+  };
+
+  const saveDoc = () => { if (!doc) return; downloadText(doc.content, doc.name, mimeForExt(doc.ext)); setDirty(false); pushRecent({ name: doc.name, kind: 'text', content: doc.content }); };
+  const exportAs = (ext: string) => {
+    if (!doc) return;
+    let out = doc.content;
+    if (ext === 'html' && doc.ext === 'md') out = `<!doctype html>\n<meta charset="utf-8">\n` + mdToHtml(doc.content);
+    downloadText(out, `${baseName(doc.name)}.${ext}`, mimeForExt(ext));
+  };
+  const replaceAll = () => { if (!doc || !find) return; setDoc({ ...doc, content: doc.content.split(find).join(replace) }); setDirty(true); };
+  const backHome = () => { if (doc) pushRecent({ name: doc.name, kind: 'text', content: doc.content }); setScreen('home'); };
+
+  const matches = doc && find ? doc.content.split(find).length - 1 : 0;
+  const words = doc ? (doc.content.trim() ? doc.content.trim().split(/\s+/).length : 0) : 0;
+  const chars = doc ? doc.content.length : 0;
+  const lineCount = doc ? doc.content.split(/\n/).length : 1;
+  const lh = Math.round(fontSize * 1.7);
+  const isMd = doc ? (doc.ext === 'md' || doc.ext === 'markdown') : false;
+
+  const Tbtn = ({ on, onClick, children, title }: { on?: boolean; onClick: () => void; children: any; title: string }) => (
+    <button onClick={onClick} title={title} className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors ${on ? 'bg-terra text-cream' : 'text-ink-muted hover:text-ink hover:bg-card'}`}>{children}</button>
+  );
+
+  if (screen === 'photo' && photo) {
+    return (
+      <PhotoEditor
+        key={photo.name}
+        name={photo.name}
+        initial={photo.doc}
+        theme={theme}
+        onExit={(savedDoc) => { pushRecent({ name: photo.name, kind: 'lull', content: JSON.stringify(savedDoc) }); setPhoto(null); setScreen('home'); }}
+        onClose={onClose}
+      />
+    );
+  }
+  if (screen === 'audio' && audio) {
+    return <AudioEditor key={audio.name + (audio.src ? '1' : '0')} name={audio.name} srcDataUrl={audio.src} theme={theme} onClose={() => { setAudio(null); setScreen('home'); }} />;
+  }
+  if (screen === 'video' && video) {
+    return <VideoEditor key={video.src} name={video.name} srcUrl={video.src} theme={theme} onClose={() => { setVideo(null); setScreen('home'); }} />;
+  }
+
+  return (
+    <div className="fixed inset-0 z-40 bg-cream animate-fade-in flex flex-col" style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
+      {/* header */}
+      <div className="flex items-center gap-2 px-4 sm:px-6 py-3 border-b border-cream-dark shrink-0">
+        <FolderOpen size={18} className="text-terra shrink-0" strokeWidth={1.9} />
+        <h2 className="font-display text-lg text-ink font-medium">Files</h2>
+        {screen === 'text' && doc && (
+          <span className="text-sm text-ink-muted ml-2 truncate max-w-[40vw]">· {doc.name}{dirty ? ' •' : ''}</span>
+        )}
+        <div className="flex-1" />
+        {screen === 'home' ? (
+          <>
+            <button onClick={() => setShowNew(true)} className="flex items-center gap-1.5 bg-card border border-cream-dark rounded-full px-3 py-1.5 text-sm text-ink hover:border-terra transition-colors"><Plus size={15} strokeWidth={2} /> New</button>
+            <button onClick={() => fileRef.current?.click()} className="flex items-center gap-1.5 bg-ink text-cream rounded-full px-3 py-1.5 text-sm hover:bg-terra transition-colors"><Upload size={15} strokeWidth={2} /> Open</button>
+          </>
+        ) : (
+          <button onClick={backHome} className="flex items-center gap-1 text-sm text-terra"><ChevronLeft size={16} /> Files</button>
+        )}
+        <button onClick={onClose} className="text-ink-muted hover:text-ink p-1.5 ml-1" aria-label="Close files"><X size={20} /></button>
+      </div>
+
+      <input ref={fileRef} type="file" onChange={onPick} className="hidden" />
+
+      {/* ===== HOME ===== */}
+      {screen === 'home' && (
+        <div className="flex-1 overflow-y-auto p-5 sm:p-8">
+          <div className="max-w-3xl mx-auto">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
+              <button onClick={() => fileRef.current?.click()} className="bg-card border-2 border-cream-dark rounded-3xl p-6 text-left hover:border-terra transition-all group">
+                <div className="w-12 h-12 rounded-2xl bg-terra-light flex items-center justify-center mb-3 group-hover:scale-105 transition-transform"><Upload size={22} className="text-terra" strokeWidth={1.9} /></div>
+                <div className="font-display text-xl text-ink font-medium">Open a file</div>
+                <div className="text-sm text-ink-muted mt-1">Lull reads the type and opens the right editor — or converts it.</div>
+              </button>
+              <button onClick={() => setShowNew(true)} className="bg-card border-2 border-cream-dark rounded-3xl p-6 text-left hover:border-terra transition-all group">
+                <div className="w-12 h-12 rounded-2xl bg-terra-light flex items-center justify-center mb-3 group-hover:scale-105 transition-transform"><Plus size={22} className="text-terra" strokeWidth={1.9} /></div>
+                <div className="font-display text-xl text-ink font-medium">New file</div>
+                <div className="text-sm text-ink-muted mt-1">Start fresh — pick a type and export it any way you like.</div>
+              </button>
+            </div>
+
+            <div className="text-xs uppercase tracking-wider text-ink-muted mb-3">Recent</div>
+            {recent.length === 0 ? (
+              <div className="bg-card border-2 border-dashed border-cream-dark rounded-2xl py-10 text-center">
+                <FileText size={26} className="text-terra mx-auto mb-2" strokeWidth={1.4} />
+                <p className="text-ink-muted text-sm">Files you open this session show up here.</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {recent.map(r => {
+                  const M = KIND_META[r.kind];
+                  const canOpen = r.content !== undefined && (r.kind === 'text' || r.kind === 'lull');
+                  const reopen = () => {
+                    if (r.content === undefined) return;
+                    if (r.kind === 'text') openText(r.name, r.content);
+                    else if (r.kind === 'lull') { try { openPhoto(r.name, JSON.parse(r.content) as LullDoc); } catch { /* ignore */ } }
+                  };
+                  return (
+                    <button key={r.name} disabled={!canOpen} onClick={reopen} className="w-full flex items-center gap-3 bg-card border border-cream-dark rounded-2xl px-4 py-3 text-left hover:border-terra transition-colors disabled:opacity-60 disabled:hover:border-cream-dark">
+                      <M.icon size={18} className="text-terra shrink-0" strokeWidth={1.8} />
+                      <div className="min-w-0">
+                        <div className="text-ink font-medium text-sm truncate">{r.name}</div>
+                        <div className="text-xs text-ink-muted">{M.label}</div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ===== TEXT EDITOR ===== */}
+      {screen === 'text' && doc && (
+        <div className="flex-1 flex flex-col min-h-0">
+          <div className="flex items-center gap-1 flex-wrap px-3 py-2 border-b border-cream-dark shrink-0">
+            <Tbtn onClick={() => setShowFind(v => !v)} on={showFind} title="Find & replace"><Search size={14} strokeWidth={2} /></Tbtn>
+            <div className="w-px h-5 bg-cream-dark mx-1" />
+            <Tbtn onClick={() => setFontSize(s => Math.max(10, s - 1))} title="Smaller">A−</Tbtn>
+            <span className="text-xs text-ink-muted w-7 text-center">{fontSize}</span>
+            <Tbtn onClick={() => setFontSize(s => Math.min(30, s + 1))} title="Bigger">A+</Tbtn>
+            <div className="w-px h-5 bg-cream-dark mx-1" />
+            <Tbtn onClick={() => setWrap(v => !v)} on={wrap} title="Word wrap">Wrap</Tbtn>
+            <Tbtn onClick={() => setShowLines(v => !v)} on={showLines} title="Line numbers"># Lines</Tbtn>
+            <Tbtn onClick={() => setMono(v => !v)} on={mono} title="Monospace font">Mono</Tbtn>
+            {isMd && <Tbtn onClick={() => setMdPreview(v => !v)} on={mdPreview} title="Markdown preview">Preview</Tbtn>}
+          </div>
+
+          {showFind && (
+            <div className="flex items-center gap-2 flex-wrap px-3 py-2 border-b border-cream-dark shrink-0 bg-card">
+              <input value={find} onChange={e => setFind(e.target.value)} placeholder="Find" className="bg-cream border border-cream-dark rounded-lg px-3 py-1.5 text-sm text-ink focus:outline-none focus:border-terra w-40" />
+              <input value={replace} onChange={e => setReplace(e.target.value)} placeholder="Replace with" className="bg-cream border border-cream-dark rounded-lg px-3 py-1.5 text-sm text-ink focus:outline-none focus:border-terra w-40" />
+              <button onClick={replaceAll} className="bg-ink text-cream rounded-lg px-3 py-1.5 text-sm hover:bg-terra transition-colors">Replace all</button>
+              <span className="text-xs text-ink-muted">{matches} match{matches === 1 ? '' : 'es'}</span>
+            </div>
+          )}
+
+          <div className="flex-1 min-h-0 flex" style={{ background: mdPreview ? undefined : codeBg }}>
+            {mdPreview ? (
+              <div className="flex-1 overflow-y-auto p-6 sm:p-8">
+                <div className="lull-md max-w-2xl mx-auto text-ink leading-relaxed" dangerouslySetInnerHTML={{ __html: mdToHtml(doc.content) }} />
+              </div>
+            ) : (
+              <>
+                {showLines && (
+                  <div ref={gutRef} className="overflow-hidden text-right py-4 pl-3 pr-2 select-none shrink-0" style={{ fontSize, lineHeight: `${lh}px`, fontFamily: 'ui-monospace, monospace', color: 'var(--ink-muted, #9a8f7d)', background: 'rgba(0,0,0,0.04)' }}>
+                    {Array.from({ length: lineCount }, (_, i) => <div key={i}>{i + 1}</div>)}
+                  </div>
+                )}
+                <textarea
+                  ref={taRef}
+                  value={doc.content}
+                  onChange={e => { setDoc({ ...doc, content: e.target.value }); setDirty(true); }}
+                  onScroll={() => { if (gutRef.current && taRef.current) gutRef.current.scrollTop = taRef.current.scrollTop; }}
+                  spellCheck={false}
+                  className="flex-1 min-w-0 resize-none bg-transparent outline-none text-ink p-4"
+                  style={{ fontSize, lineHeight: `${lh}px`, fontFamily: mono ? 'ui-monospace, monospace' : 'inherit', whiteSpace: wrap ? 'pre-wrap' : 'pre', tabSize: 2, overflowX: wrap ? 'hidden' : 'auto' }}
+                />
+              </>
+            )}
+          </div>
+
+          {/* status bar */}
+          <div className="flex items-center gap-3 flex-wrap px-4 py-2 border-t border-cream-dark shrink-0 text-xs text-ink-muted">
+            <span>{words} words</span><span>·</span><span>{chars} chars</span><span>·</span><span>{lineCount} lines</span>
+            <div className="flex-1" />
+            <span className="text-ink-muted">Export:</span>
+            {['txt', 'md', 'html'].map(x => (
+              <button key={x} onClick={() => exportAs(x)} className="px-2 py-1 rounded-lg border border-cream-dark text-ink hover:border-terra hover:text-terra transition-colors">.{x}</button>
+            ))}
+            <button onClick={saveDoc} className="flex items-center gap-1.5 bg-ink text-cream rounded-full px-3 py-1.5 hover:bg-terra transition-colors"><Save size={13} strokeWidth={2} /> Save</button>
+          </div>
+        </div>
+      )}
+
+      {/* ===== OPEN: edit or convert ===== */}
+      {pending && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center p-6 bg-ink/50 backdrop-blur-sm" onClick={() => { setPending(null); setConvertMode(false); }}>
+          <div className="bg-cream rounded-3xl w-full max-w-md p-7 border-2 border-terra animate-slide-down" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-11 h-11 rounded-2xl bg-terra-light flex items-center justify-center">{(() => { const I = KIND_META[pending.kind].icon; return <I size={22} className="text-terra" strokeWidth={1.9} />; })()}</div>
+              <div className="min-w-0">
+                <div className="font-display text-xl text-ink font-medium truncate">{pending.name}</div>
+                <div className="text-xs text-ink-muted">{KIND_META[pending.kind].label} · {KIND_META[pending.kind].blurb}</div>
+              </div>
+            </div>
+
+            {!convertMode ? (
+              <>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    onClick={editPending}
+                    disabled={pending.kind === 'unknown'}
+                    className="flex flex-col items-start gap-1 rounded-2xl border-2 border-cream-dark p-4 text-left hover:border-terra transition-colors disabled:opacity-50 disabled:hover:border-cream-dark"
+                  >
+                    <Pencil size={18} className="text-terra" strokeWidth={1.9} />
+                    <span className="font-medium text-ink">Edit</span>
+                    <span className="text-xs text-ink-muted">{pending.kind === 'text' ? 'Open in the editor' : pending.kind === 'image' ? 'Open in the photo editor' : pending.kind === 'lull' ? 'Open your layers' : pending.kind === 'audio' ? 'Open in the audio editor' : pending.kind === 'video' ? 'Open in the video editor' : 'Editor coming soon'}</span>
+                  </button>
+                  <button
+                    onClick={() => setConvertMode(true)}
+                    disabled={pending.kind !== 'text' && pending.kind !== 'image'}
+                    className="flex flex-col items-start gap-1 rounded-2xl border-2 border-cream-dark p-4 text-left hover:border-terra transition-colors disabled:opacity-50 disabled:hover:border-cream-dark"
+                  >
+                    <FileText size={18} className="text-terra" strokeWidth={1.9} />
+                    <span className="font-medium text-ink">Convert</span>
+                    <span className="text-xs text-ink-muted">{pending.kind === 'text' || pending.kind === 'image' ? 'Change the format' : 'Coming soon'}</span>
+                  </button>
+                </div>
+                <button onClick={() => { setPending(null); setConvertMode(false); }} className="w-full mt-4 py-3 rounded-full border border-cream-dark text-ink hover:bg-card transition-colors font-medium">Cancel</button>
+              </>
+            ) : (
+              <>
+                <p className="text-sm text-ink-muted mb-3">Convert to which format?</p>
+                <div className="flex flex-wrap gap-2 mb-4">
+                  {(pending.kind === 'image' ? ['png', 'jpg', 'webp'] : ['txt', 'md', 'html']).map(t => (
+                    <button key={t} onClick={() => (pending.kind === 'image' ? convertImage(t) : convertText(t))} className="px-4 py-2 rounded-full border-2 border-cream-dark text-ink font-medium hover:border-terra hover:text-terra transition-colors">.{t}</button>
+                  ))}
+                </div>
+                <button onClick={() => setConvertMode(false)} className="w-full py-3 rounded-full border border-cream-dark text-ink hover:bg-card transition-colors font-medium">Back</button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ===== NEW FILE ===== */}
+      {showNew && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center p-6 bg-ink/50 backdrop-blur-sm" onClick={() => setShowNew(false)}>
+          <div className="bg-cream rounded-3xl w-full max-w-md p-7 border-2 border-terra animate-slide-down" onClick={e => e.stopPropagation()}>
+            <h3 className="font-display text-2xl text-ink font-medium mb-1">New file</h3>
+            <p className="text-sm text-ink-muted mb-5">Pick a type to start.</p>
+            <div className="space-y-2">
+              <div className="text-xs uppercase tracking-wider text-ink-muted mb-1">Text</div>
+              <div className="grid grid-cols-3 gap-2 mb-3">
+                {['txt', 'md', 'html'].map(x => (
+                  <button key={x} onClick={() => { setShowNew(false); openText(`untitled.${x}`, ''); setDirty(true); }} className="rounded-2xl border-2 border-cream-dark py-3 text-ink font-medium hover:border-terra hover:text-terra transition-colors">.{x}</button>
+                ))}
+              </div>
+              <div className="text-xs uppercase tracking-wider text-ink-muted mb-1">Photo · editable, exports .lull</div>
+              <div className="grid grid-cols-2 gap-2">
+                {([['Square', 1080, 1080], ['Portrait', 1080, 1350], ['Story', 1080, 1920], ['Landscape', 1920, 1080]] as const).map(([l, w, h]) => (
+                  <button key={l} onClick={() => { setShowNew(false); openPhoto('untitled.lull', blankLullDoc(w, h)); }} className="rounded-2xl border-2 border-cream-dark py-3 text-ink font-medium hover:border-terra hover:text-terra transition-colors flex items-center justify-center gap-1.5">
+                    <ImageIcon size={15} strokeWidth={1.8} /> {l}
+                  </button>
+                ))}
+              </div>
+              <div className="text-xs uppercase tracking-wider text-ink-muted mb-1 mt-3">Audio</div>
+              <button onClick={() => { setShowNew(false); openAudio('untitled.wav'); }} className="w-full rounded-2xl border-2 border-cream-dark py-3 text-ink font-medium hover:border-terra hover:text-terra transition-colors flex items-center justify-center gap-1.5">
+                <Music size={15} strokeWidth={1.8} /> New audio project
+              </button>
+            </div>
+            <button onClick={() => setShowNew(false)} className="w-full mt-5 py-3 rounded-full border border-cream-dark text-ink hover:bg-card transition-colors font-medium">Cancel</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1823,6 +3740,7 @@ export default function App() {
   const [showFriends, setShowFriends] = useState(false);
   const [showCode, setShowCode] = useState(false);
   const [showLogbook, setShowLogbook] = useState(false);
+  const [showFiles, setShowFiles] = useState(false);
   const [code, setCode] = useState<CodeData>(DEFAULT_CODE_DATA());
   const [notes, setNotes] = useState<Note[]>([]);
   const [cloudUid, setCloudUid] = useState<string | null>(null);
@@ -1836,7 +3754,7 @@ export default function App() {
   const [liveEvent, setLiveEvent] = useState<any>(null);   // global rush / announcement
   const [settingsCat, setSettingsCat] = useState('account'); // active settings category
   const anyPanelOpen = showSettings || showStats || showNotepad || showFriends || !!openSpace;
-  const closeAllPanels = () => { setShowSettings(false); setShowStats(false); setShowNotepad(false); setShowFriends(false); setShowCode(false); setShowLogbook(false); setShowAdmin(false); setOpenSpace(null); };
+  const closeAllPanels = () => { setShowSettings(false); setShowStats(false); setShowNotepad(false); setShowFriends(false); setShowCode(false); setShowLogbook(false); setShowFiles(false); setShowAdmin(false); setOpenSpace(null); };
 
   // shared reminders (from friends) mapped into the same shape as local ones
   const sharedAsReminders = sharedReminders.map((s: any) => ({
@@ -2806,6 +4724,7 @@ export default function App() {
                   { key: 'home',    label: 'Home',        icon: Home,      locked: false, onClick: () => { closeAllPanels(); setShowSidebar(false); } },
                   { key: 'stats',   label: 'Stats & achievements', icon: Trophy, locked: false, onClick: () => { closeAllPanels(); setShowStats(true); setShowSidebar(false); } },
                   { key: 'notepad', label: 'Notepad',     icon: Pencil,    locked: false, onClick: () => { closeAllPanels(); setShowNotepad(true); setShowSidebar(false); } },
+                  { key: 'files',   label: 'Files',       icon: FolderOpen, locked: !cloudPro, onClick: () => { closeAllPanels(); setShowFiles(true); setShowSidebar(false); } },
                   { key: 'code',    label: 'Code',        icon: Code2,     locked: !cloudPro, onClick: () => { closeAllPanels(); setShowCode(true); setShowSidebar(false); } },
                   { key: 'logbook', label: 'Logbook',     icon: BookOpen,  locked: !cloudPro, onClick: () => { closeAllPanels(); setShowLogbook(true); setShowSidebar(false); } },
                   { key: 'friends', label: 'Friends',     icon: Users,     locked: false, onClick: () => { closeAllPanels(); setShowFriends(true); setShowSidebar(false); } },
@@ -2840,6 +4759,12 @@ export default function App() {
         {/* ============ NOTEPAD (constellation of gradient notes) ============ */}
         {showNotepad && (
           <NotepadPanel notes={notes} setNotes={setNotes} theme={settings.theme} onClose={() => setShowNotepad(false)} />
+        )}
+
+        {/* ============ FILES (Pro) ============ */}
+        {showFiles && (cloudPro
+          ? <FilesPanel theme={settings.theme} onClose={() => setShowFiles(false)} />
+          : <ProLocked what="The file editors" onClose={() => setShowFiles(false)} />
         )}
 
         {/* ============ CODE SANDBOX (Pro) ============ */}
